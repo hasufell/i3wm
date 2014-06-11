@@ -18,6 +18,7 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <libgen.h>
 #include "all.h"
 #include "shmlog.h"
 
@@ -670,8 +671,13 @@ int main(int argc, char *argv[]) {
     if (layout_path) {
         LOG("Trying to restore the layout from %s...", layout_path);
         needs_tree_init = !tree_restore(layout_path, greply);
-        if (delete_layout_path)
+        if (delete_layout_path) {
             unlink(layout_path);
+            const char *dir = dirname(layout_path);
+            /* possibly fails with ENOTEMPTY if there are files (or
+             * sockets) left. */
+            rmdir(dir);
+        }
         free(layout_path);
     }
     if (needs_tree_init)
@@ -722,7 +728,6 @@ int main(int argc, char *argv[]) {
     if (ipc_socket == -1) {
         ELOG("Could not create the IPC socket, IPC disabled\n");
     } else {
-        free(config.ipc_socket_path);
         struct ev_io *ipc_io = scalloc(sizeof(struct ev_io));
         ev_io_init(ipc_io, ipc_new_client, ipc_socket, EV_READ);
         ev_io_start(main_loop, ipc_io);

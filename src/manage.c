@@ -438,7 +438,11 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
 
     if (motif_border_style != BS_NORMAL) {
         DLOG("MOTIF_WM_HINTS specifies decorations (border_style = %d)\n", motif_border_style);
-        con_set_border_style(nc, motif_border_style, config.default_border_width);
+        if (want_floating) {
+            con_set_border_style(nc, motif_border_style, config.default_floating_border_width);
+        } else {
+            con_set_border_style(nc, motif_border_style, config.default_border_width);
+        }
     }
 
     /* to avoid getting an UnmapNotify event due to reparenting, we temporarily
@@ -485,17 +489,17 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
         ws->rect = ws->parent->rect;
         render_con(ws, true);
     }
-    tree_render();
+    render_con(croot, false);
 
     /* Send an event about window creation */
     ipc_send_window_event("new", nc);
 
     /* Defer setting focus after the 'new' event has been sent to ensure the
      * proper window event sequence. */
-    if (set_focus) {
+    if (set_focus)
         con_focus(nc);
-        tree_render();
-    }
+
+    tree_render();
 
     /* Windows might get managed with the urgency hint already set (Pidgin is
      * known to do that), so check for that and handle the hint accordingly.

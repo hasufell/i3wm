@@ -16,21 +16,25 @@
 #include "shmlog.h"
 
 // Macros to make the YAJL API a bit easier to use.
-#define y(x, ...) yajl_gen_ ## x (cmd_output->json_gen, ##__VA_ARGS__)
-#define ystr(str) yajl_gen_string(cmd_output->json_gen, (unsigned char*)str, strlen(str))
+#define y(x, ...) (cmd_output->json_gen != NULL ? yajl_gen_ ## x (cmd_output->json_gen, ##__VA_ARGS__) : 0)
+#define ystr(str) (cmd_output->json_gen != NULL ? yajl_gen_string(cmd_output->json_gen, (unsigned char*)str, strlen(str)) : 0)
 #define ysuccess(success) do { \
-    y(map_open); \
-    ystr("success"); \
-    y(bool, success); \
-    y(map_close); \
+    if (cmd_output->json_gen != NULL) { \
+        y(map_open); \
+        ystr("success"); \
+        y(bool, success); \
+        y(map_close); \
+    } \
 } while (0)
 #define yerror(message) do { \
-    y(map_open); \
-    ystr("success"); \
-    y(bool, false); \
-    ystr("error"); \
-    ystr(message); \
-    y(map_close); \
+    if (cmd_output->json_gen != NULL) { \
+        y(map_open); \
+        ystr("success"); \
+        y(bool, false); \
+        ystr("error"); \
+        ystr(message); \
+        y(map_close); \
+    } \
 } while (0)
 
 /** When the command did not include match criteria (!), we use the currently
@@ -95,7 +99,7 @@ static Output *get_output_of_con(Con *con) {
  * and return true, signaling that no further workspace switching should occur in the calling function.
  *
  */
-static bool maybe_back_and_forth(struct CommandResult *cmd_output, char *name) {
+static bool maybe_back_and_forth(struct CommandResultIR *cmd_output, char *name) {
     Con *ws = con_get_workspace(focused);
 
     /* If we switched to a different workspace, do nothing */
@@ -355,7 +359,7 @@ void cmd_criteria_add(I3_CMD, char *ctype, char *cvalue) {
             ELOG("Could not parse con id \"%s\"\n", cvalue);
         } else {
             current_match->con_id = (Con*)parsed;
-            printf("id as int = %p\n", current_match->con_id);
+            DLOG("id as int = %p\n", current_match->con_id);
         }
         return;
     }
@@ -370,7 +374,7 @@ void cmd_criteria_add(I3_CMD, char *ctype, char *cvalue) {
             ELOG("Could not parse window id \"%s\"\n", cvalue);
         } else {
             current_match->id = parsed;
-            printf("window id as int = %d\n", current_match->id);
+            DLOG("window id as int = %d\n", current_match->id);
         }
         return;
     }
@@ -1645,6 +1649,8 @@ void cmd_layout_toggle(I3_CMD, char *toggle_mode) {
  */
 void cmd_exit(I3_CMD) {
     LOG("Exiting due to user command.\n");
+    ipc_shutdown();
+    unlink(config.ipc_socket_path);
     xcb_disconnect(conn);
     exit(0);
 
@@ -1676,6 +1682,14 @@ void cmd_reload(I3_CMD) {
  */
 void cmd_restart(I3_CMD) {
     LOG("restarting i3\n");
+    ipc_shutdown();
+    /* We need to call this manually since atexit handlers don’t get called
+     * when exec()ing */
+    purge_zerobyte_logfile();
+    /* The unlink call is intentionally after the purge_zerobyte_logfile() so
+     * that the latter does not remove the directory yet. We need to store the
+     * restart layout state in there. */
+    unlink(config.ipc_socket_path);
     i3_restart(false);
 
     // XXX: default reply for now, make this a better reply

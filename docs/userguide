@@ -250,13 +250,13 @@ single workspace on which you open three terminal windows. All these terminal
 windows are directly attached to one node inside i3’s layout tree, the
 workspace node. By default, the workspace node’s orientation is +horizontal+.
 
-Now you move one of these terminals down (+$mod+k+ by default). The workspace
-node’s orientation will be changed to +vertical+. The terminal window you moved
-down is directly attached to the workspace and appears on the bottom of the
-screen. A new (horizontal) container was created to accommodate the other two
-terminal windows. You will notice this when switching to tabbed mode (for
-example). You would end up having one tab called "another container" and the
-other one being the terminal window you moved down.
+Now you move one of these terminals down (+$mod+Shift+k+ by default). The
+workspace node’s orientation will be changed to +vertical+. The terminal window
+you moved down is directly attached to the workspace and appears on the bottom
+of the screen. A new (horizontal) container was created to accommodate the
+other two terminal windows. You will notice this when switching to tabbed mode
+(for example). You would end up having one tab called "another container" and
+the other one being the terminal window you moved down.
 
 [[configuring]]
 == Configuring i3
@@ -810,6 +810,26 @@ focus_follows_mouse <yes|no>
 focus_follows_mouse no
 ----------------------
 
+=== Mouse warping
+
+By default, when switching focus to a window on a different output (e.g.
+focusing a window on workspace 3 on output VGA-1, coming from workspace 2 on
+LVDS-1), the mouse cursor is warped to the center of that window.
+
+With the +mouse_warping+ option, you can control when the mouse cursor should
+be warped. +none+ disables warping entirely, whereas +output+ is the default
+behavior described above.
+
+*Syntax*:
+---------------------------
+mouse_warping <output|none>
+---------------------------
+
+*Example*:
+------------------
+mouse_warping none
+------------------
+
 === Popups during fullscreen mode
 
 When you are in fullscreen mode, some applications still open popup windows
@@ -1190,6 +1210,31 @@ bar {
     workspace_buttons no
 }
 ------------------------
+
+=== Strip workspace numbers
+
+Specifies whether workspace numbers should be displayed within the workspace
+buttons. This is useful if you want to have a named workspace that stays in
+order on the bar according to its number without displaying the number prefix.
+
+When +strip_workspace_numbers+ is set to +yes+, any workspace that has a name of
+the form "[n]:[NAME]" will display only the name. You could use this, for
+instance, to display Roman numerals rather than digits by naming your
+workspaces to "1:I", "2:II", "3:III", "4:IV", ...
+
+The default is to display the full name within the workspace button.
+
+*Syntax*:
+----------------------------------
+strip_workspace_numbers <yes|no>
+----------------------------------
+
+*Example*:
+----------------------------
+bar {
+    strip_workspace_numbers yes
+}
+----------------------------
 
 === Binding Mode indicator
 

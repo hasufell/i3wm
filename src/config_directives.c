@@ -69,7 +69,7 @@ CFGFUN(criteria_add, const char *ctype, const char *cvalue) {
             ELOG("Could not parse con id \"%s\"\n", cvalue);
         } else {
             current_match->con_id = (Con*)parsed;
-            printf("id as int = %p\n", current_match->con_id);
+            DLOG("id as int = %p\n", current_match->con_id);
         }
         return;
     }
@@ -84,7 +84,7 @@ CFGFUN(criteria_add, const char *ctype, const char *cvalue) {
             ELOG("Could not parse window id \"%s\"\n", cvalue);
         } else {
             current_match->id = parsed;
-            printf("window id as int = %d\n", current_match->id);
+            DLOG("window id as int = %d\n", current_match->id);
         }
         return;
     }
@@ -252,9 +252,6 @@ CFGFUN(workspace_layout, const char *layout) {
 }
 
 CFGFUN(new_window, const char *windowtype, const char *border, const long width) {
-    // FIXME: when using new_float *and* new_window with different border
-    // types, this breaks because default_border_width gets overwritten.
-
     int border_style;
     int border_width;
 
@@ -273,12 +270,14 @@ CFGFUN(new_window, const char *windowtype, const char *border, const long width)
     }
 
     if (strcmp(windowtype, "new_window") == 0) {
+        DLOG("default tiled border style = %d and border width = %d\n", border_style, border_width);
         config.default_border = border_style;
+        config.default_border_width = border_width;
     } else {
+        DLOG("default floating border style = %d and border width = %d\n", border_style, border_width);
         config.default_floating_border = border_style;
+        config.default_floating_border_width = border_width;
     }
-
-    config.default_border_width = border_width;
 }
 
 CFGFUN(hide_edge_borders, const char *borders) {
@@ -297,6 +296,13 @@ CFGFUN(hide_edge_borders, const char *borders) {
 
 CFGFUN(focus_follows_mouse, const char *value) {
     config.disable_focus_follows_mouse = !eval_boolstr(value);
+}
+
+CFGFUN(mouse_warping, const char *value) {
+    if (strcmp(value, "none") == 0)
+        config.mouse_warping = POINTER_WARPING_NONE;
+    else if (strcmp(value, "output") == 0)
+        config.mouse_warping = POINTER_WARPING_OUTPUT;
 }
 
 CFGFUN(force_xinerama, const char *value) {
@@ -515,6 +521,10 @@ CFGFUN(bar_binding_mode_indicator, const char *value) {
 
 CFGFUN(bar_workspace_buttons, const char *value) {
     current_bar.hide_workspace_buttons = !eval_boolstr(value);
+}
+
+CFGFUN(bar_strip_workspace_numbers, const char *value) {
+    current_bar.strip_workspace_numbers = eval_boolstr(value);
 }
 
 CFGFUN(bar_finish) {

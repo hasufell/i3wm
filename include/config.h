@@ -98,6 +98,7 @@ struct Config {
     int container_stack_limit;
     int container_stack_limit_value;
     int default_border_width;
+    int default_floating_border_width;
 
     /** Default orientation for new containers */
     int default_orientation;
@@ -107,6 +108,16 @@ struct Config {
      * focus), we allow him to do this with this relatively special option.
      * It is not planned to add any different focus models. */
     bool disable_focus_follows_mouse;
+
+    /** By default, when switching focus to a window on a different output
+     * (e.g. focusing a window on workspace 3 on output VGA-1, coming from
+     * workspace 2 on LVDS-1), the mouse cursor is warped to the center of
+     * that window.
+     *
+     * With the mouse_warping option, you can control when the mouse cursor
+     * should be warped. "none" disables warping entirely, whereas "output"
+     * is the default behavior described above. */
+    warping_t mouse_warping;
 
     /** Remove borders if they are adjacent to the screen edge.
      * This is useful if you are reaching scrollbar on the edge of the
@@ -266,6 +277,10 @@ struct Barconfig {
      * but we invert the bool to get the correct default when initializing with
      * zero. */
     bool hide_workspace_buttons;
+
+    /** Strip workspace numbers? Configuration option is
+     * 'strip_workspace_numbers yes'. */
+    bool strip_workspace_numbers;
 
     /** Hide mode button? Configuration option is 'binding_mode_indicator no'
      * but we invert the bool for the same reason as hide_workspace_buttons.*/

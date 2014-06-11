@@ -232,8 +232,8 @@ static void clear_criteria(void *unused_criteria) {
 
 static cmdp_state state;
 static Match current_match;
-static struct ConfigResult subcommand_output;
-static struct ConfigResult command_output;
+static struct ConfigResultIR subcommand_output;
+static struct ConfigResultIR command_output;
 
 /* A list which contains the states that lead to the current state, e.g.
  * INITIAL, WORKSPACE_LAYOUT.
@@ -304,7 +304,7 @@ static char *single_line(const char *start) {
     return result;
 }
 
-struct ConfigResult *parse_config(const char *input, struct context *context) {
+struct ConfigResultIR *parse_config(const char *input, struct context *context) {
     /* Dump the entire config file into the debug log. We cannot just use
      * DLOG("%s", input); because one log message must not exceed 4 KiB. */
     const char *dumpwalk = input;
@@ -687,7 +687,7 @@ static int detect_version(char *buf) {
             strncasecmp(line, "force_focus_wrapping", strlen("force_focus_wrapping")) == 0 ||
             strncasecmp(line, "# i3 config file (v4)", strlen("# i3 config file (v4)")) == 0 ||
             strncasecmp(line, "workspace_layout", strlen("workspace_layout")) == 0) {
-            printf("deciding for version 4 due to this line: %.*s\n", (int)(walk-line), line);
+            LOG("deciding for version 4 due to this line: %.*s\n", (int)(walk-line), line);
             return 4;
         }
 
@@ -719,7 +719,7 @@ static int detect_version(char *buf) {
                 strncasecmp(bind, "border borderless", strlen("border borderless")) == 0 ||
                 strncasecmp(bind, "--no-startup-id", strlen("--no-startup-id")) == 0 ||
                 strncasecmp(bind, "bar", strlen("bar")) == 0) {
-                printf("deciding for version 4 due to this line: %.*s\n", (int)(walk-line), line);
+                LOG("deciding for version 4 due to this line: %.*s\n", (int)(walk-line), line);
                 return 4;
             }
         }
@@ -987,12 +987,12 @@ void parse_file(const char *f) {
             free(new);
             new = converted;
         } else {
-            printf("\n");
-            printf("**********************************************************************\n");
-            printf("ERROR: Could not convert config file. Maybe i3-migrate-config-to-v4\n");
-            printf("was not correctly installed on your system?\n");
-            printf("**********************************************************************\n");
-            printf("\n");
+            LOG("\n");
+            LOG("**********************************************************************\n");
+            LOG("ERROR: Could not convert config file. Maybe i3-migrate-config-to-v4\n");
+            LOG("was not correctly installed on your system?\n");
+            LOG("**********************************************************************\n");
+            LOG("\n");
         }
     }
 
@@ -1000,7 +1000,7 @@ void parse_file(const char *f) {
     context = scalloc(sizeof(struct context));
     context->filename = f;
 
-    struct ConfigResult *config_output = parse_config(new, context);
+    struct ConfigResultIR *config_output = parse_config(new, context);
     yajl_gen_free(config_output->json_gen);
 
     check_for_duplicate_bindings(context);
