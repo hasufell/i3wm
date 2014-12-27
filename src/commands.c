@@ -273,7 +273,7 @@ void cmd_criteria_init(I3_CMD) {
     }
     TAILQ_INIT(&owindows);
     /* copy all_cons */
-    TAILQ_FOREACH (con, &all_cons, all_cons) {
+    TAILQ_FOREACH(con, &all_cons, all_cons) {
         ow = smalloc(sizeof(owindow));
         ow->con = con;
         TAILQ_INSERT_TAIL(&owindows, ow, owindows);
@@ -324,7 +324,7 @@ void cmd_criteria_match_windows(I3_CMD) {
         }
     }
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
     }
 }
@@ -448,7 +448,7 @@ void cmd_move_con_to_workspace(I3_CMD, char *which) {
         return;
     }
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
         con_move_to_workspace(current->con, ws, true, false);
     }
@@ -475,7 +475,7 @@ void cmd_move_con_to_workspace_back_and_forth(I3_CMD) {
 
     HANDLE_EMPTY_MATCH;
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
         con_move_to_workspace(current->con, ws, true, false);
     }
@@ -513,13 +513,33 @@ void cmd_move_con_to_workspace_name(I3_CMD, char *name) {
 
     LOG("should move window to workspace %s\n", name);
     /* get the workspace */
-    Con *ws = workspace_get(name, NULL);
+    Con *ws = NULL;
+    Con *output = NULL;
+
+    /* first look for a workspace with this name */
+    TAILQ_FOREACH(output, &(croot->nodes_head), nodes) {
+        GREP_FIRST(ws, output_get_content(output), !strcasecmp(child->name, name));
+    }
+
+    /* if the name is plain digits, we interpret this as a "workspace number"
+     * command */
+    if (!ws && name_is_digits(name)) {
+        long parsed_num = ws_name_to_number(name);
+        TAILQ_FOREACH(output, &(croot->nodes_head), nodes) {
+            GREP_FIRST(ws, output_get_content(output),
+                       child->num == parsed_num);
+        }
+    }
+
+    /* if no workspace was found, make a new one */
+    if (!ws)
+        ws = workspace_get(name, NULL);
 
     ws = maybe_auto_back_and_forth_workspace(ws);
 
     HANDLE_EMPTY_MATCH;
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
         con_move_to_workspace(current->con, ws, true, false);
     }
@@ -550,21 +570,18 @@ void cmd_move_con_to_workspace_number(I3_CMD, char *which) {
     /* get the workspace */
     Con *output, *workspace = NULL;
 
-    char *endptr = NULL;
-    long parsed_num = strtol(which, &endptr, 10);
-    if (parsed_num == LONG_MIN ||
-        parsed_num == LONG_MAX ||
-        parsed_num < 0 ||
-        endptr == which) {
+    long parsed_num = ws_name_to_number(which);
+
+    if (parsed_num == -1) {
         LOG("Could not parse initial part of \"%s\" as a number.\n", which);
         // TODO: better error message
         yerror("Could not parse number");
         return;
     }
 
-    TAILQ_FOREACH (output, &(croot->nodes_head), nodes)
-        GREP_FIRST(workspace, output_get_content(output),
-                   child->num == parsed_num);
+    TAILQ_FOREACH(output, &(croot->nodes_head), nodes)
+    GREP_FIRST(workspace, output_get_content(output),
+               child->num == parsed_num);
 
     if (!workspace) {
         workspace = workspace_get(which, NULL);
@@ -574,7 +591,7 @@ void cmd_move_con_to_workspace_number(I3_CMD, char *which) {
 
     HANDLE_EMPTY_MATCH;
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
         con_move_to_workspace(current->con, workspace, true, false);
     }
@@ -728,7 +745,7 @@ static bool cmd_resize_tiling_width_height(I3_CMD, Con *current, char *way, char
 
     /* Ensure all the other children have a percentage set. */
     Con *child;
-    TAILQ_FOREACH (child, &(current->parent->nodes_head), nodes) {
+    TAILQ_FOREACH(child, &(current->parent->nodes_head), nodes) {
         LOG("child->percent = %f (child %p)\n", child->percent, child);
         if (child->percent == 0.0)
             child->percent = percentage;
@@ -740,7 +757,7 @@ static bool cmd_resize_tiling_width_height(I3_CMD, Con *current, char *way, char
     LOG("subtract_percent = %f\n", subtract_percent);
     /* Ensure that the new percentages are positive and greater than
      * 0.05 to have a reasonable minimum size. */
-    TAILQ_FOREACH (child, &(current->parent->nodes_head), nodes) {
+    TAILQ_FOREACH(child, &(current->parent->nodes_head), nodes) {
         if (child == current)
             continue;
         if (!definitelyGreaterThan(child->percent - subtract_percent, 0.05, DBL_EPSILON)) {
@@ -758,7 +775,7 @@ static bool cmd_resize_tiling_width_height(I3_CMD, Con *current, char *way, char
     current->percent += ((double)ppt / 100.0);
     LOG("current->percent after = %f\n", current->percent);
 
-    TAILQ_FOREACH (child, &(current->parent->nodes_head), nodes) {
+    TAILQ_FOREACH(child, &(current->parent->nodes_head), nodes) {
         if (child == current)
             continue;
         child->percent -= subtract_percent;
@@ -786,7 +803,7 @@ void cmd_resize(I3_CMD, char *way, char *direction, char *resize_px, char *resiz
     HANDLE_EMPTY_MATCH;
 
     owindow *current;
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         /* Don't handle dock windows (issue #1201) */
         if (current->con->window && current->con->window->dock) {
             DLOG("This is a dock window. Not resizing (con = %p)\n)", current->con);
@@ -823,7 +840,7 @@ void cmd_border(I3_CMD, char *border_style_str, char *border_width) {
 
     HANDLE_EMPTY_MATCH;
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
         int border_style = current->con->border_style;
         char *end;
@@ -882,15 +899,27 @@ void cmd_nop(I3_CMD, char *comment) {
  */
 void cmd_append_layout(I3_CMD, char *path) {
     LOG("Appending layout \"%s\"\n", path);
+
+    json_content_t content = json_determine_content(path);
+    LOG("JSON content = %d\n", content);
+    if (content == JSON_CONTENT_UNKNOWN) {
+        ELOG("Could not determine the contents of \"%s\", not loading.\n", path);
+        ysuccess(false);
+        return;
+    }
+
     Con *parent = focused;
-    /* We need to append the layout to a split container, since a leaf
-     * container must not have any children (by definition).
-     * Note that we explicitly check for workspaces, since they are okay for
-     * this purpose, but con_accepts_window() returns false for workspaces. */
-    while (parent->type != CT_WORKSPACE && !con_accepts_window(parent))
-        parent = parent->parent;
-    DLOG("Appending to parent=%p instead of focused=%p\n",
-         parent, focused);
+    if (content == JSON_CONTENT_WORKSPACE) {
+        parent = output_get_content(con_get_output(parent));
+    } else {
+        /* We need to append the layout to a split container, since a leaf
+         * container must not have any children (by definition).
+         * Note that we explicitly check for workspaces, since they are okay for
+         * this purpose, but con_accepts_window() returns false for workspaces. */
+        while (parent->type != CT_WORKSPACE && !con_accepts_window(parent))
+            parent = parent->parent;
+    }
+    DLOG("Appending to parent=%p instead of focused=%p\n", parent, focused);
     char *errormsg = NULL;
     tree_append_json(parent, path, &errormsg);
     if (errormsg != NULL) {
@@ -914,6 +943,9 @@ void cmd_append_layout(I3_CMD, char *path) {
 
     restore_open_placeholder_windows(parent);
 
+    if (content == JSON_CONTENT_WORKSPACE)
+        ipc_send_workspace_event("restored", parent, NULL);
+
     cmd_output->needs_tree_render = true;
 }
 
@@ -925,6 +957,12 @@ void cmd_workspace(I3_CMD, char *which) {
     Con *ws;
 
     DLOG("which=%s\n", which);
+
+    if (con_get_fullscreen_con(croot, CF_GLOBAL)) {
+        LOG("Cannot switch workspace while in global fullscreen\n");
+        ysuccess(false);
+        return;
+    }
 
     if (strcmp(which, "next") == 0)
         ws = workspace_next();
@@ -954,22 +992,24 @@ void cmd_workspace(I3_CMD, char *which) {
 void cmd_workspace_number(I3_CMD, char *which) {
     Con *output, *workspace = NULL;
 
-    char *endptr = NULL;
-    long parsed_num = strtol(which, &endptr, 10);
-    if (parsed_num == LONG_MIN ||
-        parsed_num == LONG_MAX ||
-        parsed_num < 0 ||
-        endptr == which) {
-        LOG("Could not parse initial part of \"%s\" as a number.\n", which);
-        // TODO: better error message
-        yerror("Could not parse number");
-
+    if (con_get_fullscreen_con(croot, CF_GLOBAL)) {
+        LOG("Cannot switch workspace while in global fullscreen\n");
+        ysuccess(false);
         return;
     }
 
-    TAILQ_FOREACH (output, &(croot->nodes_head), nodes)
-        GREP_FIRST(workspace, output_get_content(output),
-                   child->num == parsed_num);
+    long parsed_num = ws_name_to_number(which);
+
+    if (parsed_num == -1) {
+        LOG("Could not parse initial part of \"%s\" as a number.\n", which);
+        // TODO: better error message
+        yerror("Could not parse number");
+        return;
+    }
+
+    TAILQ_FOREACH(output, &(croot->nodes_head), nodes)
+    GREP_FIRST(workspace, output_get_content(output),
+               child->num == parsed_num);
 
     if (!workspace) {
         LOG("There is no workspace with number %ld, creating a new one.\n", parsed_num);
@@ -992,6 +1032,12 @@ void cmd_workspace_number(I3_CMD, char *which) {
  *
  */
 void cmd_workspace_back_and_forth(I3_CMD) {
+    if (con_get_fullscreen_con(croot, CF_GLOBAL)) {
+        LOG("Cannot switch workspace while in global fullscreen\n");
+        ysuccess(false);
+        return;
+    }
+
     workspace_back_and_forth();
 
     cmd_output->needs_tree_render = true;
@@ -1010,10 +1056,39 @@ void cmd_workspace_name(I3_CMD, char *name) {
         return;
     }
 
+    if (con_get_fullscreen_con(croot, CF_GLOBAL)) {
+        LOG("Cannot switch workspace while in global fullscreen\n");
+        ysuccess(false);
+        return;
+    }
+
     DLOG("should switch to workspace %s\n", name);
     if (maybe_back_and_forth(cmd_output, name))
         return;
-    workspace_show_by_name(name);
+
+    Con *ws = NULL;
+    Con *output = NULL;
+
+    /* first look for a workspace with this name */
+    TAILQ_FOREACH(output, &(croot->nodes_head), nodes) {
+        GREP_FIRST(ws, output_get_content(output), !strcasecmp(child->name, name));
+    }
+
+    /* if the name is only digits, we interpret this as a "workspace number"
+     * command */
+    if (!ws && name_is_digits(name)) {
+        long parsed_num = ws_name_to_number(name);
+        TAILQ_FOREACH(output, &(croot->nodes_head), nodes) {
+            GREP_FIRST(ws, output_get_content(output),
+                       child->num == parsed_num);
+        }
+    }
+
+    /* if no workspace was found, make a new one */
+    if (!ws)
+        ws = workspace_get(name, NULL);
+
+    workspace_show(ws);
 
     cmd_output->needs_tree_render = true;
     // XXX: default reply for now, make this a better reply
@@ -1028,7 +1103,7 @@ void cmd_mark(I3_CMD, char *mark) {
     DLOG("Clearing all windows which have that mark first\n");
 
     Con *con;
-    TAILQ_FOREACH (con, &all_cons, all_cons) {
+    TAILQ_FOREACH(con, &all_cons, all_cons) {
         if (con->mark && strcmp(con->mark, mark) == 0)
             FREE(con->mark);
     }
@@ -1038,7 +1113,7 @@ void cmd_mark(I3_CMD, char *mark) {
 
     HANDLE_EMPTY_MATCH;
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
         current->con->mark = sstrdup(mark);
     }
@@ -1055,13 +1130,13 @@ void cmd_mark(I3_CMD, char *mark) {
 void cmd_unmark(I3_CMD, char *mark) {
     if (mark == NULL) {
         Con *con;
-        TAILQ_FOREACH (con, &all_cons, all_cons) {
+        TAILQ_FOREACH(con, &all_cons, all_cons) {
             FREE(con->mark);
         }
         DLOG("removed all window marks");
     } else {
         Con *con;
-        TAILQ_FOREACH (con, &all_cons, all_cons) {
+        TAILQ_FOREACH(con, &all_cons, all_cons) {
             if (con->mark && strcmp(con->mark, mark) == 0)
                 FREE(con->mark);
         }
@@ -1101,8 +1176,8 @@ void cmd_move_con_to_output(I3_CMD, char *name) {
     Output *output;
 
     // TODO: fix the handling of criteria
-    TAILQ_FOREACH (current, &owindows, owindows)
-        current_output = get_output_of_con(current->con);
+    TAILQ_FOREACH(current, &owindows, owindows)
+    current_output = get_output_of_con(current->con);
 
     assert(current_output != NULL);
 
@@ -1132,7 +1207,7 @@ void cmd_move_con_to_output(I3_CMD, char *name) {
         return;
     }
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
         con_move_to_workspace(current->con, ws, true, false);
     }
@@ -1153,7 +1228,7 @@ void cmd_floating(I3_CMD, char *floating_mode) {
 
     HANDLE_EMPTY_MATCH;
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
         if (strcmp(floating_mode, "toggle") == 0) {
             DLOG("should toggle mode\n");
@@ -1183,7 +1258,7 @@ void cmd_move_workspace_to_output(I3_CMD, char *name) {
     HANDLE_EMPTY_MATCH;
 
     owindow *current;
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         Output *current_output = get_output_of_con(current->con);
         if (!current_output) {
             ELOG("Cannot get current output. This is a bug in i3.\n");
@@ -1213,15 +1288,15 @@ void cmd_move_workspace_to_output(I3_CMD, char *name) {
             /* check if we can find a workspace assigned to this output */
             bool used_assignment = false;
             struct Workspace_Assignment *assignment;
-            TAILQ_FOREACH (assignment, &ws_assignments, ws_assignments) {
+            TAILQ_FOREACH(assignment, &ws_assignments, ws_assignments) {
                 if (strcmp(assignment->output, current_output->name) != 0)
                     continue;
 
                 /* check if this workspace is already attached to the tree */
                 Con *workspace = NULL, *out;
-                TAILQ_FOREACH (out, &(croot->nodes_head), nodes)
-                    GREP_FIRST(workspace, output_get_content(out),
-                               !strcasecmp(child->name, assignment->name));
+                TAILQ_FOREACH(out, &(croot->nodes_head), nodes)
+                GREP_FIRST(workspace, output_get_content(out),
+                           !strcasecmp(child->name, assignment->name));
                 if (workspace != NULL)
                     continue;
 
@@ -1238,7 +1313,7 @@ void cmd_move_workspace_to_output(I3_CMD, char *name) {
                 create_workspace_on_output(current_output, ws->parent);
 
             /* notify the IPC listeners */
-            ipc_send_event("workspace", I3_IPC_EVENT_WORKSPACE, "{\"change\":\"init\"}");
+            ipc_send_workspace_event("init", ws, NULL);
         }
         DLOG("Detaching\n");
 
@@ -1256,10 +1331,10 @@ void cmd_move_workspace_to_output(I3_CMD, char *name) {
 
         /* fix the coordinates of the floating containers */
         Con *floating_con;
-        TAILQ_FOREACH (floating_con, &(ws->floating_head), floating_windows)
-            floating_fix_coordinates(floating_con, &(old_content->rect), &(content->rect));
+        TAILQ_FOREACH(floating_con, &(ws->floating_head), floating_windows)
+        floating_fix_coordinates(floating_con, &(old_content->rect), &(content->rect));
 
-        ipc_send_event("workspace", I3_IPC_EVENT_WORKSPACE, "{\"change\":\"move\"}");
+        ipc_send_workspace_event("move", ws, NULL);
         if (workspace_was_visible) {
             /* Focus the moved workspace on the destination output. */
             workspace_show(ws);
@@ -1270,7 +1345,7 @@ void cmd_move_workspace_to_output(I3_CMD, char *name) {
          * focus order/number of other workspaces on the output.
          * Instead, we loop through the available workspaces and only work with
          * previously_visible_ws if we still find it. */
-        TAILQ_FOREACH (ws, &(content->nodes_head), nodes) {
+        TAILQ_FOREACH(ws, &(content->nodes_head), nodes) {
             if (ws != previously_visible_ws)
                 continue;
 
@@ -1298,7 +1373,7 @@ void cmd_split(I3_CMD, char *direction) {
     if (match_is_empty(current_match))
         tree_split(focused, (direction[0] == 'v' ? VERT : HORIZ));
     else {
-        TAILQ_FOREACH (current, &owindows, owindows) {
+        TAILQ_FOREACH(current, &owindows, owindows) {
             DLOG("matching: %p / %s\n", current->con, current->con->name);
             tree_split(current->con, (direction[0] == 'v' ? VERT : HORIZ));
         }
@@ -1335,7 +1410,7 @@ void cmd_kill(I3_CMD, char *kill_mode_str) {
     if (match_is_empty(current_match))
         tree_close_con(kill_mode);
     else {
-        TAILQ_FOREACH (current, &owindows, owindows) {
+        TAILQ_FOREACH(current, &owindows, owindows) {
             DLOG("matching: %p / %s\n", current->con, current->con->name);
             tree_close(current->con, kill_mode, false, false);
         }
@@ -1403,7 +1478,7 @@ void cmd_focus_window_mode(I3_CMD, char *window_mode) {
             else
                 window_mode = "floating";
         }
-        TAILQ_FOREACH (current, &(ws->focus_head), focused) {
+        TAILQ_FOREACH(current, &(ws->focus_head), focused) {
             if ((strcmp(window_mode, "floating") == 0 && current->type != CT_FLOATING_CON) ||
                 (strcmp(window_mode, "tiling") == 0 && current->type == CT_FLOATING_CON))
                 continue;
@@ -1465,7 +1540,7 @@ void cmd_focus(I3_CMD) {
     Con *__i3_scratch = workspace_get("__i3_scratch", NULL);
     int count = 0;
     owindow *current;
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         Con *ws = con_get_workspace(current->con);
         /* If no workspace could be found, this was a dock window.
          * Just skip it, you cannot focus dock windows. */
@@ -1523,20 +1598,26 @@ void cmd_focus(I3_CMD) {
 }
 
 /*
- * Implementation of 'fullscreen [global]'.
+ * Implementation of 'fullscreen enable|toggle [global]' and
+ *                   'fullscreen disable'
  *
  */
-void cmd_fullscreen(I3_CMD, char *fullscreen_mode) {
-    if (fullscreen_mode == NULL)
-        fullscreen_mode = "output";
-    DLOG("toggling fullscreen, mode = %s\n", fullscreen_mode);
+void cmd_fullscreen(I3_CMD, char *action, char *fullscreen_mode) {
+    fullscreen_mode_t mode = strcmp(fullscreen_mode, "global") == 0 ? CF_GLOBAL : CF_OUTPUT;
+    DLOG("%s fullscreen, mode = %s\n", action, fullscreen_mode);
     owindow *current;
 
     HANDLE_EMPTY_MATCH;
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
-        con_toggle_fullscreen(current->con, (strcmp(fullscreen_mode, "global") == 0 ? CF_GLOBAL : CF_OUTPUT));
+        if (strcmp(action, "toggle") == 0) {
+            con_toggle_fullscreen(current->con, mode);
+        } else if (strcmp(action, "enable") == 0) {
+            con_enable_fullscreen(current->con, mode);
+        } else if (strcmp(action, "disable") == 0) {
+            con_disable_fullscreen(current->con);
+        }
     }
 
     cmd_output->needs_tree_render = true;
@@ -1552,25 +1633,35 @@ void cmd_move_direction(I3_CMD, char *direction, char *move_px) {
     // TODO: We could either handle this in the parser itself as a separate token (and make the stack typed) or we need a better way to convert a string to a number with error checking
     int px = atoi(move_px);
 
-    /* TODO: make 'move' work with criteria. */
-    DLOG("moving in direction %s, px %s\n", direction, move_px);
-    if (con_is_floating(focused)) {
-        DLOG("floating move with %d pixels\n", px);
-        Rect newrect = focused->parent->rect;
-        if (strcmp(direction, "left") == 0) {
-            newrect.x -= px;
-        } else if (strcmp(direction, "right") == 0) {
-            newrect.x += px;
-        } else if (strcmp(direction, "up") == 0) {
-            newrect.y -= px;
-        } else if (strcmp(direction, "down") == 0) {
-            newrect.y += px;
+    owindow *current;
+    HANDLE_EMPTY_MATCH;
+
+    Con *initially_focused = focused;
+
+    TAILQ_FOREACH(current, &owindows, owindows) {
+        DLOG("moving in direction %s, px %s\n", direction, move_px);
+        if (con_is_floating(current->con)) {
+            DLOG("floating move with %d pixels\n", px);
+            Rect newrect = current->con->parent->rect;
+            if (strcmp(direction, "left") == 0) {
+                newrect.x -= px;
+            } else if (strcmp(direction, "right") == 0) {
+                newrect.x += px;
+            } else if (strcmp(direction, "up") == 0) {
+                newrect.y -= px;
+            } else if (strcmp(direction, "down") == 0) {
+                newrect.y += px;
+            }
+            floating_reposition(current->con->parent, newrect);
+        } else {
+            tree_move(current->con, (strcmp(direction, "right") == 0 ? D_RIGHT : (strcmp(direction, "left") == 0 ? D_LEFT : (strcmp(direction, "up") == 0 ? D_UP : D_DOWN))));
+            cmd_output->needs_tree_render = true;
         }
-        floating_reposition(focused->parent, newrect);
-    } else {
-        tree_move((strcmp(direction, "right") == 0 ? D_RIGHT : (strcmp(direction, "left") == 0 ? D_LEFT : (strcmp(direction, "up") == 0 ? D_UP : D_DOWN))));
-        cmd_output->needs_tree_render = true;
     }
+
+    /* the move command should not disturb focus */
+    if (focused != initially_focused)
+        con_focus(initially_focused);
 
     // XXX: default reply for now, make this a better reply
     ysuccess(true);
@@ -1607,7 +1698,7 @@ void cmd_layout(I3_CMD, char *layout_str) {
     if (match_is_empty(current_match))
         con_set_layout(focused, layout);
     else {
-        TAILQ_FOREACH (current, &owindows, owindows) {
+        TAILQ_FOREACH(current, &owindows, owindows) {
             DLOG("matching: %p / %s\n", current->con, current->con->name);
             con_set_layout(current->con, layout);
         }
@@ -1634,7 +1725,7 @@ void cmd_layout_toggle(I3_CMD, char *toggle_mode) {
     if (match_is_empty(current_match))
         con_toggle_layout(focused, toggle_mode);
     else {
-        TAILQ_FOREACH (current, &owindows, owindows) {
+        TAILQ_FOREACH(current, &owindows, owindows) {
             DLOG("matching: %p / %s\n", current->con, current->con->name);
             con_toggle_layout(current->con, toggle_mode);
         }
@@ -1670,7 +1761,7 @@ void cmd_reload(I3_CMD) {
     load_configuration(conn, NULL, true);
     x_set_i3_atoms();
     /* Send an IPC event just in case the ws names have changed */
-    ipc_send_event("workspace", I3_IPC_EVENT_WORKSPACE, "{\"change\":\"reload\"}");
+    ipc_send_workspace_event("reload", NULL, NULL);
     /* Send an update event for the barconfig just in case it has changed */
     update_barconfig();
 
@@ -1685,13 +1776,10 @@ void cmd_reload(I3_CMD) {
 void cmd_restart(I3_CMD) {
     LOG("restarting i3\n");
     ipc_shutdown();
+    unlink(config.ipc_socket_path);
     /* We need to call this manually since atexit handlers don’t get called
      * when exec()ing */
     purge_zerobyte_logfile();
-    /* The unlink call is intentionally after the purge_zerobyte_logfile() so
-     * that the latter does not remove the directory yet. We need to store the
-     * restart layout state in there. */
-    unlink(config.ipc_socket_path);
     i3_restart(false);
 
     // XXX: default reply for now, make this a better reply
@@ -1733,8 +1821,8 @@ void cmd_focus_output(I3_CMD, char *name) {
     Output *current_output = NULL;
     Output *output;
 
-    TAILQ_FOREACH (current, &owindows, owindows)
-        current_output = get_output_of_con(current->con);
+    TAILQ_FOREACH(current, &owindows, owindows)
+    current_output = get_output_of_con(current->con);
     assert(current_output != NULL);
 
     output = get_output_from_string(current_output, name);
@@ -1767,34 +1855,46 @@ void cmd_focus_output(I3_CMD, char *name) {
 void cmd_move_window_to_position(I3_CMD, char *method, char *cx, char *cy) {
     int x = atoi(cx);
     int y = atoi(cy);
+    bool has_error = false;
 
-    if (!con_is_floating(focused)) {
-        ELOG("Cannot change position. The window/container is not floating\n");
-        yerror("Cannot change position. The window/container is not floating.");
-        return;
-    }
+    owindow *current;
+    HANDLE_EMPTY_MATCH;
 
-    if (strcmp(method, "absolute") == 0) {
-        focused->parent->rect.x = x;
-        focused->parent->rect.y = y;
+    TAILQ_FOREACH(current, &owindows, owindows) {
+        if (!con_is_floating(current->con)) {
+            ELOG("Cannot change position. The window/container is not floating\n");
 
-        DLOG("moving to absolute position %d %d\n", x, y);
-        floating_maybe_reassign_ws(focused->parent);
-        cmd_output->needs_tree_render = true;
-    }
+            if (!has_error) {
+                yerror("Cannot change position of a window/container because it is not floating.");
+                has_error = true;
+            }
 
-    if (strcmp(method, "position") == 0) {
-        Rect newrect = focused->parent->rect;
+            continue;
+        }
 
-        DLOG("moving to position %d %d\n", x, y);
-        newrect.x = x;
-        newrect.y = y;
+        if (strcmp(method, "absolute") == 0) {
+            current->con->parent->rect.x = x;
+            current->con->parent->rect.y = y;
 
-        floating_reposition(focused->parent, newrect);
+            DLOG("moving to absolute position %d %d\n", x, y);
+            floating_maybe_reassign_ws(current->con->parent);
+            cmd_output->needs_tree_render = true;
+        }
+
+        if (strcmp(method, "position") == 0) {
+            Rect newrect = current->con->parent->rect;
+
+            DLOG("moving to position %d %d\n", x, y);
+            newrect.x = x;
+            newrect.y = y;
+
+            floating_reposition(current->con->parent, newrect);
+        }
     }
 
     // XXX: default reply for now, make this a better reply
-    ysuccess(true);
+    if (!has_error)
+        ysuccess(true);
 }
 
 /*
@@ -1844,7 +1944,7 @@ void cmd_move_scratchpad(I3_CMD) {
 
     HANDLE_EMPTY_MATCH;
 
-    TAILQ_FOREACH (current, &owindows, owindows) {
+    TAILQ_FOREACH(current, &owindows, owindows) {
         DLOG("matching: %p / %s\n", current->con, current->con->name);
         scratchpad_move(current->con);
     }
@@ -1865,7 +1965,7 @@ void cmd_scratchpad_show(I3_CMD) {
     if (match_is_empty(current_match)) {
         scratchpad_show(NULL);
     } else {
-        TAILQ_FOREACH (current, &owindows, owindows) {
+        TAILQ_FOREACH(current, &owindows, owindows) {
             DLOG("matching: %p / %s\n", current->con, current->con->name);
             scratchpad_show(current->con);
         }
@@ -1894,9 +1994,9 @@ void cmd_rename_workspace(I3_CMD, char *old_name, char *new_name) {
 
     Con *output, *workspace = NULL;
     if (old_name) {
-        TAILQ_FOREACH (output, &(croot->nodes_head), nodes)
-            GREP_FIRST(workspace, output_get_content(output),
-                       !strcasecmp(child->name, old_name));
+        TAILQ_FOREACH(output, &(croot->nodes_head), nodes)
+        GREP_FIRST(workspace, output_get_content(output),
+                   !strcasecmp(child->name, old_name));
     } else {
         workspace = con_get_workspace(focused);
     }
@@ -1910,9 +2010,9 @@ void cmd_rename_workspace(I3_CMD, char *old_name, char *new_name) {
     }
 
     Con *check_dest = NULL;
-    TAILQ_FOREACH (output, &(croot->nodes_head), nodes)
-        GREP_FIRST(check_dest, output_get_content(output),
-                   !strcasecmp(child->name, new_name));
+    TAILQ_FOREACH(output, &(croot->nodes_head), nodes)
+    GREP_FIRST(check_dest, output_get_content(output),
+               !strcasecmp(child->name, new_name));
 
     if (check_dest != NULL) {
         // TODO: we should include the new workspace name here and use yajl for
@@ -1925,15 +2025,8 @@ void cmd_rename_workspace(I3_CMD, char *old_name, char *new_name) {
     /* Change the name and try to parse it as a number. */
     FREE(workspace->name);
     workspace->name = sstrdup(new_name);
-    char *endptr = NULL;
-    long parsed_num = strtol(new_name, &endptr, 10);
-    if (parsed_num == LONG_MIN ||
-        parsed_num == LONG_MAX ||
-        parsed_num < 0 ||
-        endptr == new_name)
-        workspace->num = -1;
-    else
-        workspace->num = parsed_num;
+
+    workspace->num = ws_name_to_number(new_name);
     LOG("num = %d\n", workspace->num);
 
     /* By re-attaching, the sort order will be correct afterwards. */
@@ -1947,7 +2040,10 @@ void cmd_rename_workspace(I3_CMD, char *old_name, char *new_name) {
     cmd_output->needs_tree_render = true;
     ysuccess(true);
 
-    ipc_send_event("workspace", I3_IPC_EVENT_WORKSPACE, "{\"change\":\"rename\"}");
+    ipc_send_workspace_event("rename", workspace, NULL);
+    ewmh_update_desktop_names();
+    ewmh_update_desktop_viewport();
+    ewmh_update_current_desktop();
 }
 
 /*
@@ -1972,7 +2068,7 @@ bool cmd_bar_mode(char *bar_mode, char *bar_id) {
 
     bool changed_sth = false;
     Barconfig *current = NULL;
-    TAILQ_FOREACH (current, &barconfigs, configs) {
+    TAILQ_FOREACH(current, &barconfigs, configs) {
         if (bar_id && strcmp(current->id, bar_id) != 0)
             continue;
 
@@ -2015,7 +2111,7 @@ bool cmd_bar_hidden_state(char *bar_hidden_state, char *bar_id) {
 
     bool changed_sth = false;
     Barconfig *current = NULL;
-    TAILQ_FOREACH (current, &barconfigs, configs) {
+    TAILQ_FOREACH(current, &barconfigs, configs) {
         if (bar_id && strcmp(current->id, bar_id) != 0)
             continue;
 
