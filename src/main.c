@@ -502,7 +502,7 @@ int main(int argc, char *argv[]) {
     }
 
     xcb_void_cookie_t cookie;
-    cookie = xcb_change_window_attributes_checked(conn, root, XCB_CW_EVENT_MASK, (uint32_t[]) {ROOT_EVENT_MASK});
+    cookie = xcb_change_window_attributes_checked(conn, root, XCB_CW_EVENT_MASK, (uint32_t[]){ROOT_EVENT_MASK});
     check_error(conn, cookie, "Another window manager seems to be running");
 
     xcb_get_geometry_reply_t *greply = xcb_get_geometry_reply(conn, gcookie, NULL);
@@ -536,9 +536,9 @@ int main(int argc, char *argv[]) {
         xcb_xkb_use_extension(conn, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION);
         xcb_xkb_select_events(conn,
                               XCB_XKB_ID_USE_CORE_KBD,
-                              XCB_XKB_EVENT_TYPE_STATE_NOTIFY | XCB_XKB_EVENT_TYPE_MAP_NOTIFY,
+                              XCB_XKB_EVENT_TYPE_STATE_NOTIFY | XCB_XKB_EVENT_TYPE_MAP_NOTIFY | XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY,
                               0,
-                              XCB_XKB_EVENT_TYPE_STATE_NOTIFY | XCB_XKB_EVENT_TYPE_MAP_NOTIFY,
+                              XCB_XKB_EVENT_TYPE_STATE_NOTIFY | XCB_XKB_EVENT_TYPE_MAP_NOTIFY | XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY,
                               0xff,
                               0xff,
                               NULL);
@@ -742,10 +742,10 @@ int main(int argc, char *argv[]) {
 
         xcb_create_gc(conn, gc, root->root,
                       XCB_GC_FUNCTION | XCB_GC_PLANE_MASK | XCB_GC_FILL_STYLE | XCB_GC_SUBWINDOW_MODE,
-                      (uint32_t[]) {XCB_GX_COPY, ~0, XCB_FILL_STYLE_SOLID, XCB_SUBWINDOW_MODE_INCLUDE_INFERIORS});
+                      (uint32_t[]){XCB_GX_COPY, ~0, XCB_FILL_STYLE_SOLID, XCB_SUBWINDOW_MODE_INCLUDE_INFERIORS});
 
         xcb_copy_area(conn, root->root, pixmap, gc, 0, 0, 0, 0, width, height);
-        xcb_change_window_attributes_checked(conn, root->root, XCB_CW_BACK_PIXMAP, (uint32_t[]) {pixmap});
+        xcb_change_window_attributes_checked(conn, root->root, XCB_CW_BACK_PIXMAP, (uint32_t[]){pixmap});
         xcb_flush(conn);
         xcb_free_gc(conn, gc);
         xcb_free_pixmap(conn, pixmap);
@@ -778,7 +778,7 @@ int main(int argc, char *argv[]) {
         ELOG("Could not setup signal handler");
 
     /* Ignore SIGPIPE to survive errors when an IPC client disconnects
-     * while we are sending him a message */
+     * while we are sending them a message */
     signal(SIGPIPE, SIG_IGN);
 
     /* Autostarting exec-lines */

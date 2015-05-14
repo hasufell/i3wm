@@ -49,10 +49,11 @@ static struct Mode *mode_from_name(const char *name) {
  *
  */
 Binding *configure_binding(const char *bindtype, const char *modifiers, const char *input_code,
-                           const char *release, const char *command, const char *modename) {
+                           const char *release, const char *whole_window, const char *command, const char *modename) {
     Binding *new_binding = scalloc(sizeof(Binding));
     DLOG("bindtype %s, modifiers %s, input code %s, release %s\n", bindtype, modifiers, input_code, release);
     new_binding->release = (release != NULL ? B_UPON_KEYRELEASE : B_UPON_KEYPRESS);
+    new_binding->whole_window = (whole_window != NULL);
     if (strcmp(bindtype, "bindsym") == 0) {
         new_binding->input_type = (strncasecmp(input_code, "button", (sizeof("button") - 1)) == 0
                                        ? B_MOUSE
@@ -158,9 +159,10 @@ static Binding *get_binding(uint16_t modifiers, bool is_release, uint16_t input_
          * need to look in the array of translated keycodes for the event’s
          * keycode */
         if (input_type == B_KEYBOARD && bind->symbol != NULL) {
+            xcb_keycode_t input_keycode = (xcb_keycode_t)input_code;
             if (memmem(bind->translated_to,
                        bind->number_keycodes * sizeof(xcb_keycode_t),
-                       &input_code, sizeof(xcb_keycode_t)) == NULL)
+                       &input_keycode, sizeof(xcb_keycode_t)) == NULL)
                 continue;
         } else {
             /* This case is easier: The user specified a keycode */
@@ -209,7 +211,7 @@ Binding *get_binding_from_xcb_event(xcb_generic_event_t *event) {
     state_filtered &= 0xFF;
     DLOG("(removed upper 8 bits, state = %d)\n", state_filtered);
 
-    if (xkb_current_group == XkbGroup2Index)
+    if (xkb_current_group == XCB_XKB_GROUP_2)
         state_filtered |= BIND_MODE_SWITCH;
 
     DLOG("(checked mode_switch, state %d)\n", state_filtered);
@@ -292,8 +294,8 @@ void translate_keysyms(void) {
             bind->translated_to[bind->number_keycodes - 1] = i;
         }
 
-        DLOG("Translated symbol \"%s\" to %d keycode\n", bind->symbol,
-             bind->number_keycodes);
+        DLOG("Translated symbol \"%s\" to %d keycode (mods %d)\n", bind->symbol,
+             bind->number_keycodes, bind->mods);
     }
 }
 

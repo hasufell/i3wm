@@ -46,6 +46,9 @@ static bool tiling_resize_for_border(Con *con, border_t border, xcb_button_press
         case BORDER_BOTTOM:
             search_direction = D_DOWN;
             break;
+        default:
+            assert(false);
+            break;
     }
 
     bool res = resize_find_tiling_participants(&first, &second, search_direction);
@@ -182,9 +185,9 @@ static int route_click(Con *con, xcb_button_press_event_t *event, const bool mod
     if (dest == CLICK_DECORATION || dest == CLICK_INSIDE) {
         Binding *bind = get_binding_from_xcb_event((xcb_generic_event_t *)event);
         /* clicks over a window decoration will always trigger the binding and
-         * clicks on the inside of the window will only trigger a binding if it
-         * has modifiers. */
-        if (bind && (dest == CLICK_DECORATION || (bind->mods && dest == CLICK_INSIDE))) {
+         * clicks on the inside of the window will only trigger a binding if
+         * the --whole-window flag was given for the binding. */
+        if (bind && (dest == CLICK_DECORATION || bind->whole_window)) {
             CommandResult *result = run_binding(bind, con);
 
             /* ASYNC_POINTER eats the event */
@@ -198,6 +201,11 @@ static int route_click(Con *con, xcb_button_press_event_t *event, const bool mod
 
             return 0;
         }
+    }
+
+    /* There is no default behavior for button release events so we are done. */
+    if (event->response_type == XCB_BUTTON_RELEASE) {
+        goto done;
     }
 
     /* Any click in a workspace should focus that workspace. If the
@@ -336,9 +344,10 @@ done:
  */
 int handle_button_press(xcb_button_press_event_t *event) {
     Con *con;
-    DLOG("Button %d pressed on window 0x%08x (child 0x%08x) at (%d, %d) (root %d, %d)\n",
-         event->state, event->event, event->child, event->event_x, event->event_y,
-         event->root_x, event->root_y);
+    DLOG("Button %d %s on window 0x%08x (child 0x%08x) at (%d, %d) (root %d, %d)\n",
+         event->state, (event->response_type == XCB_BUTTON_PRESS ? "press" : "release"),
+         event->event, event->child, event->event_x, event->event_y, event->root_x,
+         event->root_y);
 
     last_timestamp = event->time;
 
@@ -351,7 +360,7 @@ int handle_button_press(xcb_button_press_event_t *event) {
     if (!(con = con_by_frame_id(event->event))) {
         /* If the root window is clicked, find the relevant output from the
          * click coordinates and focus the output's active workspace. */
-        if (event->event == root) {
+        if (event->event == root && event->response_type == XCB_BUTTON_PRESS) {
             Con *output, *ws;
             TAILQ_FOREACH(output, &(croot->nodes_head), nodes) {
                 if (con_is_internal(output) ||
@@ -374,11 +383,6 @@ int handle_button_press(xcb_button_press_event_t *event) {
         return 0;
     }
 
-    if (event->child != XCB_NONE) {
-        DLOG("event->child not XCB_NONE, so this is an event which originated from a click into the application, but the application did not handle it.\n");
-        return route_click(con, event, mod_pressed, CLICK_INSIDE);
-    }
-
     /* Check if the click was on the decoration of a child */
     Con *child;
     TAILQ_FOREACH(child, &(con->nodes_head), nodes) {
@@ -386,6 +390,11 @@ int handle_button_press(xcb_button_press_event_t *event) {
             continue;
 
         return route_click(child, event, mod_pressed, CLICK_DECORATION);
+    }
+
+    if (event->child != XCB_NONE) {
+        DLOG("event->child not XCB_NONE, so this is an event which originated from a click into the application, but the application did not handle it.\n");
+        return route_click(con, event, mod_pressed, CLICK_INSIDE);
     }
 
     return route_click(con, event, mod_pressed, CLICK_BORDER);

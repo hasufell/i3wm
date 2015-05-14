@@ -105,7 +105,7 @@ static int json_end_map(void *ctx) {
             int cnt = 1;
             while (workspace != NULL) {
                 FREE(json_node->name);
-                asprintf(&(json_node->name), "%s_%d", base, cnt++);
+                sasprintf(&(json_node->name), "%s_%d", base, cnt++);
                 workspace = NULL;
                 TAILQ_FOREACH(output, &(croot->nodes_head), nodes)
                 GREP_FIRST(workspace, output_get_content(output), !strcasecmp(child->name, json_node->name));
@@ -425,9 +425,20 @@ static int json_double(void *ctx, double val) {
 }
 
 static json_content_t content_result;
+static int content_level;
+
+static int json_determine_content_deeper(void *ctx) {
+    content_level++;
+    return 1;
+}
+
+static int json_determine_content_shallower(void *ctx) {
+    content_level--;
+    return 1;
+}
 
 static int json_determine_content_string(void *ctx, const unsigned char *val, size_t len) {
-    if (strcasecmp(last_key, "type") != 0)
+    if (strcasecmp(last_key, "type") != 0 || content_level > 1)
         return 1;
 
     DLOG("string = %.*s, last_key = %s\n", (int)len, val, last_key);
@@ -463,11 +474,16 @@ json_content_t json_determine_content(const char *filename) {
     // We default to JSON_CONTENT_CON because it is legal to not include
     // “"type": "con"” in the JSON files for better readability.
     content_result = JSON_CONTENT_CON;
+    content_level = 0;
     yajl_gen g;
     yajl_handle hand;
     static yajl_callbacks callbacks = {
         .yajl_string = json_determine_content_string,
         .yajl_map_key = json_key,
+        .yajl_start_array = json_determine_content_deeper,
+        .yajl_start_map = json_determine_content_deeper,
+        .yajl_end_map = json_determine_content_shallower,
+        .yajl_end_array = json_determine_content_shallower,
     };
     g = yajl_gen_alloc(NULL);
     hand = yajl_alloc(&callbacks, NULL, (void *)g);

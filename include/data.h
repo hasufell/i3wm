@@ -255,6 +255,11 @@ struct Binding {
         B_UPON_KEYRELEASE_IGNORE_MODS = 2,
     } release;
 
+    /** If this is true for a mouse binding, the binding should be executed
+     * when the button is pressed over any part of the window, not just the
+     * title bar (default). */
+    bool whole_window;
+
     uint32_t number_keycodes;
 
     /** Keycode to bind */
@@ -450,7 +455,7 @@ struct Match {
 /**
  * An Assignment makes specific windows go to a specific workspace/output or
  * run a command for that window. With this mechanism, the user can -- for
- * example -- assign his browser to workspace "www". Checking if a window is
+ * example -- assign their browser to workspace "www". Checking if a window is
  * assigned works by comparing the Match data structure with the window (see
  * match_matches_window()).
  *
@@ -460,7 +465,6 @@ struct Assignment {
      *
      * A_COMMAND = run the specified command for the matching window
      * A_TO_WORKSPACE = assign the matching window to the specified workspace
-     * A_TO_OUTPUT = assign the matching window to the specified output
      *
      * While the type is a bitmask, only one value can be set at a time. It is
      * a bitmask to allow filtering for multiple types, for example in the
@@ -470,18 +474,16 @@ struct Assignment {
     enum {
         A_ANY = 0,
         A_COMMAND = (1 << 0),
-        A_TO_WORKSPACE = (1 << 1),
-        A_TO_OUTPUT = (1 << 2)
+        A_TO_WORKSPACE = (1 << 1)
     } type;
 
     /** the criteria to check if a window matches */
     Match match;
 
-    /** destination workspace/output/command, depending on the type */
+    /** destination workspace/command, depending on the type */
     union {
         char *command;
         char *workspace;
-        char *output;
     } dest;
 
     TAILQ_ENTRY(Assignment) assignments;
