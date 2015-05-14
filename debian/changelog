@@ -1,8 +1,20 @@
-i3-wm (4.10.1-1) experimental; urgency=medium
+i3-wm (4.10.3-1) experimental; urgency=medium
 
   * NOT YET RELEASED.
 
- -- Michael Stapelberg <stapelberg@debian.org>  Sun, 29 Mar 2015 18:08:13 +0200
+ -- Michael Stapelberg <stapelberg@debian.org>  Thu, 16 Apr 2015 09:08:30 +0200
+
+i3-wm (4.10.2-1) experimental; urgency=medium
+
+  * New upstream release.
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Thu, 16 Apr 2015 09:02:53 +0200
+
+i3-wm (4.10.1-1) experimental; urgency=medium
+
+  * New upstream release.
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Sun, 29 Mar 2015 18:54:07 +0200
 
 i3-wm (4.10-1) experimental; urgency=medium
 

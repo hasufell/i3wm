@@ -4,7 +4,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * handlers.c: Small handlers for various events (keypresses, focus changes,
  *             …).
@@ -743,16 +743,17 @@ static void handle_client_message(xcb_client_message_event_t *event) {
             workspace_show(ws);
             con_focus(con);
         } else {
-            /* If the request is from an application, only focus if the
-             * workspace is visible. Otherwise set the urgency hint. */
-            if (workspace_is_visible(ws)) {
-                DLOG("Request to focus con on a visible workspace. Focusing con = %p\n", con);
+            /* Request is from an application. */
+
+            if (config.focus_on_window_activation == FOWA_FOCUS || (config.focus_on_window_activation == FOWA_SMART && workspace_is_visible(ws))) {
+                DLOG("Focusing con = %p\n", con);
                 workspace_show(ws);
                 con_focus(con);
-            } else {
-                DLOG("Request to focus con on a hidden workspace. Setting urgent con = %p\n", con);
+            } else if (config.focus_on_window_activation == FOWA_URGENT || (config.focus_on_window_activation == FOWA_SMART && !workspace_is_visible(ws))) {
+                DLOG("Marking con = %p urgent\n", con);
                 con_set_urgency(con, true);
-            }
+            } else
+                DLOG("Ignoring request for con = %p", con);
         }
 
         tree_render();
@@ -879,7 +880,7 @@ static void handle_client_message(xcb_client_message_event_t *event) {
                 floating_drag_window(con->parent, &fake);
                 break;
             case _NET_WM_MOVERESIZE_SIZE_TOPLEFT... _NET_WM_MOVERESIZE_SIZE_LEFT:
-                floating_resize_window(con->parent, FALSE, &fake);
+                floating_resize_window(con->parent, false, &fake);
                 break;
             default:
                 DLOG("_NET_WM_MOVERESIZE direction %d not implemented\n", direction);
@@ -891,15 +892,15 @@ static void handle_client_message(xcb_client_message_event_t *event) {
     }
 }
 
-#if 0
-int handle_window_type(void *data, xcb_connection_t *conn, uint8_t state, xcb_window_t window,
-                        xcb_atom_t atom, xcb_get_property_reply_t *property) {
-        /* TODO: Implement this one. To do this, implement a little test program which sleep(1)s
-         before changing this property. */
-        ELOG("_NET_WM_WINDOW_TYPE changed, this is not yet implemented.\n");
-        return 0;
+bool handle_window_type(void *data, xcb_connection_t *conn, uint8_t state, xcb_window_t window,
+                        xcb_atom_t atom, xcb_get_property_reply_t *reply) {
+    Con *con;
+    if ((con = con_by_window_id(window)) == NULL || con->window == NULL)
+        return false;
+
+    window_update_type(con->window, reply);
+    return true;
 }
-#endif
 
 /*
  * Handles the size hints set by a window, but currently only the part necessary for displaying
@@ -1263,7 +1264,8 @@ static struct property_handler_t property_handlers[] = {
     {0, UINT_MAX, handle_transient_for},
     {0, 128, handle_windowrole_change},
     {0, 128, handle_class_change},
-    {0, UINT_MAX, handle_strut_partial_change}};
+    {0, UINT_MAX, handle_strut_partial_change},
+    {0, UINT_MAX, handle_window_type}};
 #define NUM_HANDLERS (sizeof(property_handlers) / sizeof(struct property_handler_t))
 
 /*
@@ -1283,6 +1285,7 @@ void property_handlers_init(void) {
     property_handlers[6].atom = A_WM_WINDOW_ROLE;
     property_handlers[7].atom = XCB_ATOM_WM_CLASS;
     property_handlers[8].atom = A__NET_WM_STRUT_PARTIAL;
+    property_handlers[9].atom = A__NET_WM_WINDOW_TYPE;
 }
 
 static void property_notify(uint8_t state, xcb_window_t window, xcb_atom_t atom) {

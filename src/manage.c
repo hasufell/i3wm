@@ -4,7 +4,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2013 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * manage.c: Initially managing new windows (or existing ones on restart).
  *
@@ -218,6 +218,9 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
 
     /* check if the window needs WM_TAKE_FOCUS */
     cwindow->needs_take_focus = window_supports_protocol(cwindow->id, A_WM_TAKE_FOCUS);
+
+    /* read the preferred _NET_WM_WINDOW_TYPE atom */
+    cwindow->window_type = xcb_get_preferred_window_type(type_reply);
 
     /* Where to start searching for a container that swallows the new one? */
     Con *search_at = croot;
@@ -521,8 +524,10 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
     /* Defer setting focus after the 'new' event has been sent to ensure the
      * proper window event sequence. */
     if (set_focus && !nc->window->doesnt_accept_focus && nc->mapped) {
-        DLOG("Now setting focus.\n");
-        con_focus(nc);
+        if (assignment_for(cwindow, A_NO_FOCUS) == NULL) {
+            DLOG("Now setting focus.\n");
+            con_focus(nc);
+        }
     }
 
     tree_render();

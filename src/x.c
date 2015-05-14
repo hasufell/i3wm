@@ -4,7 +4,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * x.c: Interface to X11, transfers our in-memory state to X11 (see also
  *      render.c). Basically a big state machine.
@@ -39,6 +39,7 @@ typedef struct con_state {
     bool mapped;
     bool unmap_now;
     bool child_mapped;
+    bool is_hidden;
 
     /** The con for which this state is. */
     Con *con;
@@ -404,6 +405,7 @@ void x_draw_decoration(Con *con) {
         (con->window == NULL || !con->window->name_x_changed) &&
         !parent->pixmap_recreated &&
         !con->pixmap_recreated &&
+        !con->mark_changed &&
         memcmp(p, con->deco_render_params, sizeof(struct deco_render_params)) == 0) {
         free(p);
         goto copy_pixmaps;
@@ -422,6 +424,7 @@ void x_draw_decoration(Con *con) {
 
     parent->pixmap_recreated = false;
     con->pixmap_recreated = false;
+    con->mark_changed = false;
 
     /* 2: draw the client.background, but only for the parts around the client_rect */
     if (con->window != NULL) {
@@ -575,10 +578,25 @@ void x_draw_decoration(Con *con) {
     if (win->icon) indent_px += 18;
 #endif
 
+    int mark_width = 0;
+    if (config.show_marks && con->mark != NULL && (con->mark)[0] != '_') {
+        char *formatted_mark;
+        sasprintf(&formatted_mark, "[%s]", con->mark);
+        i3String *mark = i3string_from_utf8(formatted_mark);
+        FREE(formatted_mark);
+        mark_width = predict_text_width(mark);
+
+        draw_text(mark, parent->pixmap, parent->pm_gc,
+                  con->deco_rect.x + con->deco_rect.width - mark_width - logical_px(2),
+                  con->deco_rect.y + text_offset_y, mark_width);
+
+        I3STRING_FREE(mark);
+    }
+
     draw_text(win->name,
               parent->pixmap, parent->pm_gc,
-              con->deco_rect.x + 2 + indent_px, con->deco_rect.y + text_offset_y,
-              con->deco_rect.width - 2 - indent_px);
+              con->deco_rect.x + logical_px(2) + indent_px, con->deco_rect.y + text_offset_y,
+              con->deco_rect.width - logical_px(2) - indent_px - mark_width - logical_px(2));
 
 #ifdef USE_ICONS
     /* Draw the icon */
@@ -670,6 +688,33 @@ void x_deco_recurse(Con *con) {
     if ((con->type != CT_ROOT && con->type != CT_OUTPUT) &&
         (!leaf || con->mapped))
         x_draw_decoration(con);
+}
+
+/*
+ * Sets or removes the _NET_WM_STATE_HIDDEN property on con if necessary.
+ *
+ */
+static void set_hidden_state(Con *con) {
+    if (con->window == NULL) {
+        return;
+    }
+
+    con_state *state = state_for_frame(con->frame);
+    bool should_be_hidden = con_is_hidden(con);
+    if (should_be_hidden == state->is_hidden)
+        return;
+
+    unsigned int num = 0;
+    uint32_t values[1];
+    if (should_be_hidden) {
+        DLOG("setting _NET_WM_STATE_HIDDEN for con = %p\n", con);
+        values[num++] = A__NET_WM_STATE_HIDDEN;
+    } else {
+        DLOG("removing _NET_WM_STATE_HIDDEN for con = %p\n", con);
+    }
+
+    xcb_change_property(conn, XCB_PROP_MODE_REPLACE, con->window->id, A__NET_WM_STATE, XCB_ATOM_ATOM, 32, num, values);
+    state->is_hidden = should_be_hidden;
 }
 
 /*
@@ -874,6 +919,8 @@ void x_push_node(Con *con) {
         DLOG("Sending fake configure notify\n");
         fake_absolute_configure_notify(con);
     }
+
+    set_hidden_state(con);
 
     /* Handle all children and floating windows of this node. We recurse
      * in focus order to display the focused client in a stack first when

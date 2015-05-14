@@ -1,7 +1,7 @@
 # vim:ts=2:sw=2:expandtab
 #
 # i3 - an improved dynamic tiling window manager
-# © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+# © 2009 Michael Stapelberg and contributors (see also: LICENSE)
 #
 # parser-specs/commands.spec: Specification file for generate-command-parser.pl
 # which will generate the appropriate header files for our C parser.
@@ -41,14 +41,15 @@ state INITIAL:
   'bar' -> BAR
 
 state CRITERIA:
-  ctype = 'class' -> CRITERION
-  ctype = 'instance' -> CRITERION
+  ctype = 'class'       -> CRITERION
+  ctype = 'instance'    -> CRITERION
   ctype = 'window_role' -> CRITERION
-  ctype = 'con_id' -> CRITERION
-  ctype = 'id' -> CRITERION
-  ctype = 'con_mark' -> CRITERION
-  ctype = 'title' -> CRITERION
-  ctype = 'urgent' -> CRITERION
+  ctype = 'con_id'      -> CRITERION
+  ctype = 'id'          -> CRITERION
+  ctype = 'window_type' -> CRITERION
+  ctype = 'con_mark'    -> CRITERION
+  ctype = 'title'       -> CRITERION
+  ctype = 'urgent'      -> CRITERION
   ']' -> call cmd_criteria_match_windows(); INITIAL
 
 state CRITERION:
@@ -189,10 +190,12 @@ state FLOATING:
   floating = 'enable', 'disable', 'toggle'
       -> call cmd_floating($floating)
 
-# mark <mark>
+# mark [--toggle] <mark>
 state MARK:
+  toggle = '--toggle'
+      ->
   mark = string
-      -> call cmd_mark($mark)
+      -> call cmd_mark($mark, $toggle)
 
 # unmark [mark]
 state UNMARK:
@@ -263,6 +266,7 @@ state RENAME_WORKSPACE_NEW_NAME:
 # move <direction> [<pixels> [px]]
 # move [window|container] [to] workspace [<str>|next|prev|next_on_output|prev_on_output|current]
 # move [window|container] [to] output <str>
+# move [window|container] [to] mark <str>
 # move [window|container] [to] scratchpad
 # move workspace to [output] <str>
 # move scratchpad
@@ -278,6 +282,8 @@ state MOVE:
       -> MOVE_WORKSPACE
   'output'
       -> MOVE_TO_OUTPUT
+  'mark'
+      -> MOVE_TO_MARK
   'scratchpad'
       -> call cmd_move_scratchpad()
   direction = 'left', 'right', 'up', 'down'
@@ -318,6 +324,10 @@ state MOVE_WORKSPACE_NUMBER:
 state MOVE_TO_OUTPUT:
   output = string
       -> call cmd_move_con_to_output($output)
+
+state MOVE_TO_MARK:
+  mark = string
+      -> call cmd_move_con_to_mark($mark)
 
 state MOVE_WORKSPACE_TO_OUTPUT:
   'output'

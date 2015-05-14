@@ -2,7 +2,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2011 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * floating.c: Floating windows.
  *
@@ -63,6 +63,12 @@ void floating_raise_con(Con *con);
  *
  */
 bool floating_maybe_reassign_ws(Con *con);
+
+/**
+ * Centers a floating con above the specified rect.
+ *
+ */
+void floating_center(Con *con, Rect rect);
 
 #if 0
 /**

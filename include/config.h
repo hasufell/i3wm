@@ -2,7 +2,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * include/config.h: Contains all structs/variables for the configurable
  * part of i3 as well as functions handling the configuration file (calling
@@ -166,6 +166,26 @@ struct Config {
      * application raised the event. To prevent this, the reset of the urgency
      * flag can be delayed using an urgency timer. */
     float workspace_urgency_timer;
+
+    /** Use a timer to delay exiting when no output is available.
+      * This can prevent i3 from exiting when all outputs disappear momentarily. */
+    float zero_disp_exit_timer_ms;
+
+    /** Behavior when a window sends a NET_ACTIVE_WINDOW message. */
+    enum {
+        /* Focus if the target workspace is visible, set urgency hint otherwise. */
+        FOWA_SMART,
+        /* Always set the urgency hint. */
+        FOWA_URGENT,
+        /* Always focus the window. */
+        FOWA_FOCUS,
+        /* Ignore the request (no focus, no urgency hint). */
+        FOWA_NONE
+    } focus_on_window_activation;
+
+    /** Specifies whether or not marks should be displayed in the window
+     * decoration. Marks starting with a "_" will be ignored either way. */
+    bool show_marks;
 
     /** The default border style for new windows. */
     border_style_t default_border;

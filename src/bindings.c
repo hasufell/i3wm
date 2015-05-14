@@ -2,7 +2,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2014 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * bindings.c: Functions for configuring, finding and, running bindings.
  */
@@ -49,10 +49,12 @@ static struct Mode *mode_from_name(const char *name) {
  *
  */
 Binding *configure_binding(const char *bindtype, const char *modifiers, const char *input_code,
-                           const char *release, const char *whole_window, const char *command, const char *modename) {
+                           const char *release, const char *border, const char *whole_window,
+                           const char *command, const char *modename) {
     Binding *new_binding = scalloc(sizeof(Binding));
     DLOG("bindtype %s, modifiers %s, input code %s, release %s\n", bindtype, modifiers, input_code, release);
     new_binding->release = (release != NULL ? B_UPON_KEYRELEASE : B_UPON_KEYPRESS);
+    new_binding->border = (border != NULL);
     new_binding->whole_window = (whole_window != NULL);
     if (strcmp(bindtype, "bindsym") == 0) {
         new_binding->input_type = (strncasecmp(input_code, "button", (sizeof("button") - 1)) == 0
@@ -429,7 +431,7 @@ CommandResult *run_binding(Binding *bind, Con *con) {
     if (con == NULL)
         command = sstrdup(bind->command);
     else
-        sasprintf(&command, "[con_id=\"%d\"] %s", con, bind->command);
+        sasprintf(&command, "[con_id=\"%p\"] %s", con, bind->command);
 
     Binding *bind_cp = binding_copy(bind);
     CommandResult *result = parse_command(command, NULL);

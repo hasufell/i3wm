@@ -1,9 +1,9 @@
 #!/bin/zsh
 # This script is used to prepare a new release of i3.
 
-export RELEASE_VERSION="4.10.1"
-export PREVIOUS_VERSION="4.10"
-export RELEASE_BRANCH="next"
+export RELEASE_VERSION="4.10.2"
+export PREVIOUS_VERSION="4.10.1"
+export RELEASE_BRANCH="master"
 
 if [ ! -e "../i3.github.io" ]
 then
@@ -82,6 +82,12 @@ else
 	git merge --no-ff next -m "Merge branch 'next' into master"
 fi
 
+git remote remove origin
+git remote add origin git@github.com:i3/i3.git
+git config --add remote.origin.push "+refs/tags/*:refs/tags/*"
+git config --add remote.origin.push "+refs/heads/next:refs/heads/next"
+git config --add remote.origin.push "+refs/heads/master:refs/heads/master"
+
 ################################################################################
 # Section 2: Debian packaging
 ################################################################################
@@ -129,6 +135,10 @@ debsign -k4AC8EE1D ${TMPDIR}/debian/*.changes
 # Section 3: website
 ################################################################################
 
+# Ensure we are in the correct branch for copying the docs.
+cd ${TMPDIR}/i3
+git checkout ${RELEASE_BRANCH}
+
 cd ${TMPDIR}
 git clone --quiet ${STARTDIR}/../i3.github.io
 cd i3.github.io
@@ -137,6 +147,7 @@ git add downloads/i3-${RELEASE_VERSION}.tar.bz2*
 cp ${TMPDIR}/i3/RELEASE-NOTES-${RELEASE_VERSION} downloads/RELEASE-NOTES-${RELEASE_VERSION}.txt
 git add downloads/RELEASE-NOTES-${RELEASE_VERSION}.txt
 sed -i "s,<h2>Documentation for i3 v[^<]*</h2>,<h2>Documentation for i3 v${RELEASE_VERSION}</h2>,g" docs/index.html
+sed -i "s,Verify you are using i3 ≥ .*,Verify you are using i3 ≥ ${RELEASE_VERSION},g" docs/debugging.html
 sed -i "s,<span style=\"margin-left: 2em; color: #c0c0c0\">[^<]*</span>,<span style=\"margin-left: 2em; color: #c0c0c0\">${RELEASE_VERSION}</span>,g" index.html
 sed -i "s,The current stable version is .*$,The current stable version is ${RELEASE_VERSION}.,g" downloads/index.html
 sed -i "s,<tbody>,<tbody>\n  <tr>\n    <td>${RELEASE_VERSION}</td>\n    <td><a href=\"/downloads/i3-${RELEASE_VERSION}.tar.bz2\">i3-${RELEASE_VERSION}.tar.bz2</a></td>\n    <td>$(ls -lh ../i3/i3-${RELEASE_VERSION}.tar.bz2 | awk -F " " {'print $5'} | sed 's/K$/ KiB/g')</td>\n    <td><a href=\"/downloads/i3-${RELEASE_VERSION}.tar.bz2.asc\">signature</a></td>\n    <td>$(date +'%Y-%m-%d')</td>\n    <td><a href=\"/downloads/RELEASE-NOTES-${RELEASE_VERSION}.txt\">release notes</a></td>\n  </tr>\n,g" downloads/index.html
@@ -164,8 +175,30 @@ done
 
 git commit -a -m "update docs for ${RELEASE_VERSION}"
 
+git remote remove origin
+git remote add origin git@github.com:i3/i3.github.io.git
+git config --add remote.origin.push "+refs/heads/master:refs/heads/master"
+
 ################################################################################
-# Section 4: final push instructions
+# Section 4: prepare release announcement email
+################################################################################
+
+cd ${TMPDIR}
+cat >email.txt <<EOT
+From: Michael Stapelberg <michael@i3wm.org>
+To: i3-announce@i3.zekjur.net
+Subject: i3 v${RELEASE_VERSION} released
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Hi,
+
+I just released i3 v${RELEASE_VERSION}. Release notes follow:
+EOT
+cat ${TMPDIR}/i3/RELEASE-NOTES-${RELEASE_VERSION} >>email.txt
+
+################################################################################
+# Section 5: final push instructions
 ################################################################################
 
 echo "As a final sanity check, install the debian package and see whether i3 works."
@@ -174,17 +207,17 @@ echo "When satisfied, run:"
 echo "  cd ${TMPDIR}/i3"
 echo "  git checkout next"
 echo "  vi debian/changelog"
-# TODO: can we just set up the remote spec properly?
-echo "  git push git@github.com:i3/i3 next"
-echo "  git push git@github.com:i3/i3 master"
-echo "  git push git@github.com:i3/i3 --tags"
+echo "  git commit -a -m \"debian: update changelog\""
+echo "  git push"
 echo ""
 echo "  cd ${TMPDIR}/i3.github.io"
-# TODO: can we just set up the remote spec properly?
-echo "  git push git@github.com:i3/i3.github.io master"
+echo "  git push"
 echo ""
 echo "  cd ${TMPDIR}/debian"
 echo "  dput *.changes"
+echo ""
+echo "  cd ${TMPDIR}"
+echo "  sendmail -t < email.txt"
 echo ""
 echo "Announce on:"
 echo "  twitter"

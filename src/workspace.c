@@ -4,7 +4,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2011 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * workspace.c: Modifying workspaces, accessing them, moving containers to
  *              workspaces.
@@ -29,6 +29,7 @@ static void _workspace_apply_default_orientation(Con *ws) {
     if (config.default_orientation == NO_ORIENTATION) {
         Con *output = con_get_output(ws);
         ws->layout = (output->rect.height > output->rect.width) ? L_SPLITV : L_SPLITH;
+        ws->rect = output->rect;
         DLOG("Auto orientation. Workspace size set to (%d,%d), setting layout to %d.\n",
              output->rect.width, output->rect.height, ws->layout);
     } else {
@@ -845,6 +846,9 @@ Con *workspace_attach_to(Con *ws) {
     /* 4: attach the new split container to the workspace */
     DLOG("Attaching new split %p to workspace %p\n", new, ws);
     con_attach(new, ws, false);
+
+    /* 5: fix the percentages */
+    con_fix_percent(ws);
 
     return new;
 }

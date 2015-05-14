@@ -2,7 +2,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * commands.c: all command functions (see commands_parser.c)
  *
@@ -109,10 +109,10 @@ void cmd_workspace_back_and_forth(I3_CMD);
 void cmd_workspace_name(I3_CMD, char *name);
 
 /**
- * Implementation of 'mark <mark>'
+ * Implementation of 'mark [--toggle] <mark>'
  *
  */
-void cmd_mark(I3_CMD, char *mark);
+void cmd_mark(I3_CMD, char *mark, char *toggle);
 
 /**
  * Implementation of 'unmark [mark]'
@@ -131,6 +131,12 @@ void cmd_mode(I3_CMD, char *mode);
  *
  */
 void cmd_move_con_to_output(I3_CMD, char *name);
+
+/**
+ * Implementation of 'move [window|container] [to] mark <str>'.
+ *
+ */
+void cmd_move_con_to_mark(I3_CMD, char *mark);
 
 /**
  * Implementation of 'floating enable|disable|toggle'

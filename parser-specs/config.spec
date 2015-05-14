@@ -1,7 +1,7 @@
 # vim:ts=2:sw=2:expandtab
 #
 # i3 - an improved dynamic tiling window manager
-# © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+# © 2009 Michael Stapelberg and contributors (see also: LICENSE)
 #
 # parser-specs/config.spec: Specification file for generate-command-parser.pl
 # which will generate the appropriate header files for our C parser.
@@ -31,6 +31,7 @@ state INITIAL:
   'hide_edge_borders'                      -> HIDE_EDGE_BORDERS
   'for_window'                             -> FOR_WINDOW
   'assign'                                 -> ASSIGN
+  'no_focus'                               -> NO_FOCUS
   'focus_follows_mouse'                    -> FOCUS_FOLLOWS_MOUSE
   'mouse_warping'                          -> MOUSE_WARPING
   'force_focus_wrapping'                   -> FORCE_FOCUS_WRAPPING
@@ -38,6 +39,9 @@ state INITIAL:
   'workspace_auto_back_and_forth'          -> WORKSPACE_BACK_AND_FORTH
   'fake_outputs', 'fake-outputs'           -> FAKE_OUTPUTS
   'force_display_urgency_hint'             -> FORCE_DISPLAY_URGENCY_HINT
+  'delay_exit_on_zero_displays'            -> DELAY_EXIT_ON_ZERO_DISPLAYS
+  'focus_on_window_activation'             -> FOCUS_ON_WINDOW_ACTIVATION
+  'show_marks'                             -> SHOW_MARKS
   'workspace'                              -> WORKSPACE
   'ipc_socket', 'ipc-socket'               -> IPC_SOCKET
   'restart_state'                          -> RESTART_STATE
@@ -148,6 +152,15 @@ state ASSIGN_WORKSPACE:
   workspace = string
       -> call cfg_assign($workspace)
 
+# no_focus <criteria>
+state NO_FOCUS:
+  '['
+      -> call cfg_criteria_init(NO_FOCUS_END); CRITERIA
+
+state NO_FOCUS_END:
+  end
+      -> call cfg_no_focus()
+
 # Criteria: Used by for_window and assign.
 state CRITERIA:
   ctype = 'class'       -> CRITERION
@@ -155,6 +168,7 @@ state CRITERIA:
   ctype = 'window_role' -> CRITERION
   ctype = 'con_id'      -> CRITERION
   ctype = 'id'          -> CRITERION
+  ctype = 'window_type' -> CRITERION
   ctype = 'con_mark'    -> CRITERION
   ctype = 'title'       -> CRITERION
   ctype = 'urgent'      -> CRITERION
@@ -204,11 +218,32 @@ state FORCE_DISPLAY_URGENCY_HINT:
   duration_ms = number
       -> FORCE_DISPLAY_URGENCY_HINT_MS
 
+# show_marks
+state SHOW_MARKS:
+  value = word
+      -> call cfg_show_marks($value)
+
 state FORCE_DISPLAY_URGENCY_HINT_MS:
   'ms'
       ->
   end
       -> call cfg_force_display_urgency_hint(&duration_ms)
+
+# delay_exit_on_zero_displays <delay> ms
+state DELAY_EXIT_ON_ZERO_DISPLAYS:
+  duration_ms = number
+      -> DELAY_EXIT_ON_ZERO_DISPLAYS_MS
+
+state DELAY_EXIT_ON_ZERO_DISPLAYS_MS:
+  'ms'
+      ->
+  end
+      -> call cfg_delay_exit_on_zero_displays(&duration_ms)
+
+# focus_on_window_activation <smart|urgent|focus|none>
+state FOCUS_ON_WINDOW_ACTIVATION:
+  mode = word
+      -> call cfg_focus_on_window_activation($mode)
 
 # workspace <workspace> output <output>
 state WORKSPACE:
@@ -278,6 +313,8 @@ state FONT:
 state BINDING:
   release = '--release'
       ->
+  border = '--border'
+      ->
   whole_window = '--whole-window'
       ->
   modifiers = 'Mod1', 'Mod2', 'Mod3', 'Mod4', 'Mod5', 'Shift', 'Control', 'Ctrl', 'Mode_switch', '$mod'
@@ -290,10 +327,12 @@ state BINDING:
 state BINDCOMMAND:
   release = '--release'
       ->
+  border = '--border'
+      ->
   whole_window = '--whole-window'
       ->
   command = string
-      -> call cfg_binding($bindtype, $modifiers, $key, $release, $whole_window, $command)
+      -> call cfg_binding($bindtype, $modifiers, $key, $release, $border, $whole_window, $command)
 
 ################################################################################
 # Mode configuration
@@ -327,6 +366,10 @@ state MODE_IGNORE_LINE:
 state MODE_BINDING:
   release = '--release'
       ->
+  border = '--border'
+      ->
+  whole_window = '--whole-window'
+      ->
   modifiers = 'Mod1', 'Mod2', 'Mod3', 'Mod4', 'Mod5', 'Shift', 'Control', 'Ctrl', 'Mode_switch', '$mod'
       ->
   '+'
@@ -337,10 +380,12 @@ state MODE_BINDING:
 state MODE_BINDCOMMAND:
   release = '--release'
       ->
+  border = '--border'
+      ->
   whole_window = '--whole-window'
       ->
   command = string
-      -> call cfg_mode_binding($bindtype, $modifiers, $key, $release, $whole_window, $command); MODE
+      -> call cfg_mode_binding($bindtype, $modifiers, $key, $release, $border, $whole_window, $command); MODE
 
 ################################################################################
 # Bar configuration (i3bar)

@@ -4,7 +4,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * commands.c: all command functions (see commands_parser.c)
  *
@@ -335,7 +335,7 @@ void cmd_criteria_add(I3_CMD, char *ctype, char *cvalue) {
 
     if (strcmp(ctype, "con_id") == 0) {
         char *end;
-        long parsed = strtol(cvalue, &end, 10);
+        long parsed = strtol(cvalue, &end, 0);
         if (parsed == LONG_MIN ||
             parsed == LONG_MAX ||
             parsed < 0 ||
@@ -350,7 +350,7 @@ void cmd_criteria_add(I3_CMD, char *ctype, char *cvalue) {
 
     if (strcmp(ctype, "id") == 0) {
         char *end;
-        long parsed = strtol(cvalue, &end, 10);
+        long parsed = strtol(cvalue, &end, 0);
         if (parsed == LONG_MIN ||
             parsed == LONG_MAX ||
             parsed < 0 ||
@@ -360,6 +360,31 @@ void cmd_criteria_add(I3_CMD, char *ctype, char *cvalue) {
             current_match->id = parsed;
             DLOG("window id as int = %d\n", current_match->id);
         }
+        return;
+    }
+
+    if (strcmp(ctype, "window_type") == 0) {
+        if (strcasecmp(cvalue, "normal") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_NORMAL;
+        else if (strcasecmp(cvalue, "dialog") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_DIALOG;
+        else if (strcasecmp(cvalue, "utility") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_UTILITY;
+        else if (strcasecmp(cvalue, "toolbar") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_TOOLBAR;
+        else if (strcasecmp(cvalue, "splash") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_SPLASH;
+        else if (strcasecmp(cvalue, "menu") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_MENU;
+        else if (strcasecmp(cvalue, "dropdown_menu") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU;
+        else if (strcasecmp(cvalue, "popup_menu") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_POPUP_MENU;
+        else if (strcasecmp(cvalue, "tooltip") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_TOOLTIP;
+        else
+            ELOG("unknown window_type value \"%s\"\n", cvalue);
+
         return;
     }
 
@@ -1037,26 +1062,46 @@ void cmd_workspace_name(I3_CMD, char *name) {
 }
 
 /*
- * Implementation of 'mark <mark>'
+ * Implementation of 'mark [--toggle] <mark>'
  *
  */
-void cmd_mark(I3_CMD, char *mark) {
-    DLOG("Clearing all windows which have that mark first\n");
-
-    Con *con;
-    TAILQ_FOREACH(con, &all_cons, all_cons) {
-        if (con->mark && strcmp(con->mark, mark) == 0)
-            FREE(con->mark);
-    }
-
-    DLOG("marking window with str %s\n", mark);
-    owindow *current;
-
+void cmd_mark(I3_CMD, char *mark, char *toggle) {
     HANDLE_EMPTY_MATCH;
 
-    TAILQ_FOREACH(current, &owindows, owindows) {
-        DLOG("matching: %p / %s\n", current->con, current->con->name);
+    owindow *current = TAILQ_FIRST(&owindows);
+    if (current == NULL) {
+        ysuccess(false);
+        return;
+    }
+
+    /* Marks must be unique, i.e., no two windows must have the same mark. */
+    if (current != TAILQ_LAST(&owindows, owindows_head)) {
+        yerror("A mark must not be put onto more than one window");
+        return;
+    }
+
+    DLOG("matching: %p / %s\n", current->con, current->con->name);
+    current->con->mark_changed = true;
+    if (toggle != NULL && current->con->mark && strcmp(current->con->mark, mark) == 0) {
+        DLOG("removing window mark %s\n", mark);
+        FREE(current->con->mark);
+    } else {
+        DLOG("marking window with str %s\n", mark);
+        FREE(current->con->mark);
         current->con->mark = sstrdup(mark);
+    }
+
+    DLOG("Clearing all non-matched windows with this mark\n");
+    Con *con;
+    TAILQ_FOREACH(con, &all_cons, all_cons) {
+        /* Skip matched window, we took care of it already. */
+        if (current->con == con)
+            continue;
+
+        if (con->mark && strcmp(con->mark, mark) == 0) {
+            FREE(con->mark);
+            con->mark_changed = true;
+        }
     }
 
     cmd_output->needs_tree_render = true;
@@ -1072,14 +1117,18 @@ void cmd_unmark(I3_CMD, char *mark) {
     if (mark == NULL) {
         Con *con;
         TAILQ_FOREACH(con, &all_cons, all_cons) {
+            if (con->mark == NULL)
+                continue;
+
             FREE(con->mark);
+            con->mark_changed = true;
         }
         DLOG("removed all window marks");
     } else {
-        Con *con;
-        TAILQ_FOREACH(con, &all_cons, all_cons) {
-            if (con->mark && strcmp(con->mark, mark) == 0)
-                FREE(con->mark);
+        Con *con = con_by_mark(mark);
+        if (con != NULL) {
+            FREE(con->mark);
+            con->mark_changed = true;
         }
         DLOG("removed window mark %s\n", mark);
     }
@@ -1141,6 +1190,26 @@ void cmd_move_con_to_output(I3_CMD, char *name) {
     cmd_output->needs_tree_render = true;
     // XXX: default reply for now, make this a better reply
     ysuccess(true);
+}
+
+/*
+ * Implementation of 'move [container|window] [to] mark <str>'.
+ *
+ */
+void cmd_move_con_to_mark(I3_CMD, char *mark) {
+    DLOG("moving window to mark \"%s\"\n", mark);
+
+    HANDLE_EMPTY_MATCH;
+
+    bool result = true;
+    owindow *current;
+    TAILQ_FOREACH(current, &owindows, owindows) {
+        DLOG("moving matched window %p / %s to mark \"%s\"\n", current->con, current->con->name, mark);
+        result &= con_move_to_mark(current->con, mark);
+    }
+
+    cmd_output->needs_tree_render = true;
+    ysuccess(result);
 }
 
 /*
@@ -1746,25 +1815,18 @@ void cmd_move_window_to_center(I3_CMD, char *method) {
     }
 
     if (strcmp(method, "absolute") == 0) {
-        Rect *rect = &focused->parent->rect;
-
         DLOG("moving to absolute center\n");
-        rect->x = croot->rect.width / 2 - rect->width / 2;
-        rect->y = croot->rect.height / 2 - rect->height / 2;
+        floating_center(focused->parent, croot->rect);
 
         floating_maybe_reassign_ws(focused->parent);
         cmd_output->needs_tree_render = true;
     }
 
     if (strcmp(method, "position") == 0) {
-        Rect *wsrect = &con_get_workspace(focused)->rect;
-        Rect newrect = focused->parent->rect;
-
         DLOG("moving to center\n");
-        newrect.x = wsrect->width / 2 - newrect.width / 2;
-        newrect.y = wsrect->height / 2 - newrect.height / 2;
+        floating_center(focused->parent, con_get_workspace(focused)->rect);
 
-        floating_reposition(focused->parent, newrect);
+        cmd_output->needs_tree_render = true;
     }
 
     // XXX: default reply for now, make this a better reply

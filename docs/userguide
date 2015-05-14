@@ -256,8 +256,9 @@ workspace node’s orientation will be changed to +vertical+. The terminal windo
 you moved down is directly attached to the workspace and appears on the bottom
 of the screen. A new (horizontal) container was created to accommodate the
 other two terminal windows. You will notice this when switching to tabbed mode
-(for example). You would end up having one tab called "another container" and
-the other one being the terminal window you moved down.
+(for example). You would end up having one tab with a representation of the split
+container (e.g., "H[urxvt firefox]") and the other one being the terminal window
+you moved down.
 
 [[configuring]]
 == Configuring i3
@@ -404,13 +405,16 @@ can configure mouse bindings in a similar way to key bindings.
 
 *Syntax*:
 ----------------------------------
-bindsym [--release] [--whole-window] [Modifiers+]button[n] command
+bindsym [--release] [--border] [--whole-window] [Modifiers+]button[n] command
 ----------------------------------
 
 By default, the binding will only run when you click on the titlebar of the
-window. If the +--whole-window+ flag is given, it will run when any part of the
-window is clicked. If the +--release+ flag is given, it will run when the mouse
-button is released.
+window. If the +--release+ flag is given, it will run when the mouse button
+is released.
+
+If the +--whole-window+ flag is given, the binding will also run when any part
+of the window is clicked, with the exception of the border. To have a bind run
+when the border is clicked, specify the +--border+ flag.
 
 *Examples*:
 --------------------------------
@@ -589,6 +593,27 @@ for_window [title="x200: ~/work"] floating enable
 
 The valid criteria are the same as those for commands, see <<command_criteria>>.
 
+=== Don't focus window upon opening
+
+[[no_focus]]
+
+When a new window appears, it will be focused. The +no_focus+ directive allows preventing
+this from happening and can be used in combination with <<command_criteria>>.
+
+Note that this does not apply to all cases, e.g., when feeding data into a running application
+causing it to request being focused. To configure the behavior in such cases, refer to
+<<focus_on_window_activation>>.
+
+*Syntax*:
+-------------------
+no_focus <criteria>
+-------------------
+
+*Example*:
+-------------------------------
+no_focus [window_role="pop-up"]
+-------------------------------
+
 === Variables
 
 As you learned in the section about keyboard bindings, you will have
@@ -698,6 +723,10 @@ which commands will be performed by i3 on initial startup. +exec+
 commands will not run when restarting i3, if you need a command to run
 also when restarting i3 you should use the +exec_always+
 keyword. These commands will be run in order.
+
+See <<command_chaining>> for details on the special meaning of +;+ (semicolon)
+and +,+ (comma): they chain commands together in i3, so you need to use quoted
+strings if they appear in your command.
 
 *Syntax*:
 -------------------
@@ -980,6 +1009,76 @@ force_display_urgency_hint <timeout> ms
 ---------------------------------
 force_display_urgency_hint 500 ms
 ---------------------------------
+
+=== Delaying exiting on zero displays
+
+Outputs may disappear momentarily and come back later. For example,
+using a docking station that does not announce the undock (e.g. ACPI Undock 
+event triggered through manually pushing a button before actually ejecting 
+the notebook). During the removal of the notebook from the docking station,
+all outputs disappear momentarily.
+
+To prevent i3 from exiting when no output is available momentarily, you can 
+tell i3 to delay a certain time first and check available outputs again using 
+the +delay_exit_on_zero_displays+ directive. Setting the value to 0 disables 
+this feature.
+
+The default is 500ms.
+
+*Syntax*:
+----------------------------------------
+delay_exit_on_zero_displays <timeout> ms
+----------------------------------------
+
+*Example*:
+----------------------------------
+delay_exit_on_zero_displays 500 ms
+----------------------------------
+
+=== Focus on window activation
+
+[[focus_on_window_activation]]
+
+If a window is activated, e.g., via +google-chrome www.google.com+, it may request
+to take focus. Since this may not preferable, different reactions can be configured.
+
+Note that this may not affect windows that are being opened. To prevent new windows
+from being focused, see <<no_focus>>.
+
+*Syntax*:
+----------------------------------------------------
+focus_on_window_activation <smart|urgent|focus|none>
+----------------------------------------------------
+
+The different modes will act as follows:
+
+smart::
+    This is the default behavior. If the window requesting focus is on an active
+    workspace, it will receive the focus. Otherwise, the urgency hint will be set.
+urgent::
+    The window will always be marked urgent, but the focus will not be stolen.
+focus::
+    The window will always be focused and not be marked urgent.
+none::
+    The window will neither be focused, nor be marked urgent.
+
+=== Drawing marks on window decoration
+
+If activated, marks on windows are drawn in their window decoration. However,
+any mark starting with an underscore in its name (+_+) will not be drawn even if
+this option is activated.
+
+The default for this option is +yes+.
+
+*Syntax*:
+-------------------
+show_marks [yes|no]
+-------------------
+
+*Example*:
+--------------
+show_marks yes
+--------------
 
 == Configuring i3bar
 
@@ -1397,6 +1496,8 @@ do this is to use the +i3-msg+ utility:
 i3-msg border none
 --------------------------
 
+[[command_chaining]]
+
 Commands can be chained by using +;+ (a semicolon). So, to move a window to a
 specific workspace and immediately switch to that workspace, you can configure
 the following keybinding:
@@ -1441,6 +1542,10 @@ instance::
 	Compares the window instance (the first part of WM_CLASS)
 window_role::
 	Compares the window role (WM_WINDOW_ROLE).
+window_type::
+        Compare the window type (_NET_WM_WINDOW_TYPE). Possible values are
+        +normal+, +dialog+, +utility+, +toolbar+, +splash+, +menu+, +dropdown_menu+,
+        +popup_menu+ and +toolti+.
 id::
 	Compares the X11 window ID, which you can get via +xwininfo+ for example.
 title::
@@ -1466,7 +1571,11 @@ information on how to use them.
 What good is a window manager if you can’t actually start any applications?
 The exec command starts an application by passing the command you specify to a
 shell. This implies that you can use globbing (wildcards) and programs will be
-searched in your $PATH.
+searched in your +$PATH+.
+
+See <<command_chaining>> for details on the special meaning of +;+ (semicolon)
+and +,+ (comma): they chain commands together in i3, so you need to use quoted
+strings if they appear in your command.
 
 *Syntax*:
 ------------------------------
@@ -1767,6 +1876,26 @@ bindsym $mod+x move workspace to output right
 bindsym $mod+x move container to output VGA1
 --------------------------------------------------------
 
+=== Moving containers/workspaces to marks
+
+To move a container to another container with a specific mark (see <<vim_like_marks>>),
+you can use the following command.
+
+The window will be moved right after the marked container in the tree, i.e., it ends up
+in the same position as if you had opened a new window when the marked container was
+focused. If the mark is on a split container, the window will appear as a new child
+after the currently focused child within that container.
+
+*Syntax*:
+------------------------------------
+move window|container to mark <mark>
+------------------------------------
+
+*Example*:
+--------------------------------------------------------
+for_window [instance="tabme"] move window to mark target
+--------------------------------------------------------
+
 [[resizingconfig]]
 
 === Resizing containers/windows
@@ -1856,9 +1985,15 @@ window, you cannot simply bind it to a key.  +i3-input+ is a tool created
 for this purpose: It lets you input a command and sends the command to i3. It
 can also prefix this command and display a custom prompt for the input dialog.
 
+The additional +--toggle+ option will remove the mark if the window already has
+this mark, add it if the window has none or replace the current mark if it has
+another mark.
+
+Refer to +show_marks+ if you don't want marks to be shown in the window decoration.
+
 *Syntax*:
 ------------------------------
-mark identifier
+mark [--toggle] identifier
 [con_mark="identifier"] focus
 unmark identifier
 ------------------------------

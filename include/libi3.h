@@ -2,7 +2,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2013 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * libi3: contains functions which are used by i3 *and* accompanying tools such
  * as i3-msg, i3-config-wizard, …
@@ -126,6 +126,13 @@ void *srealloc(void *ptr, size_t size);
  *
  */
 char *sstrdup(const char *str);
+
+/**
+ * Safe-wrapper around strndup which exits if strndup returns NULL (meaning that
+ * there is no more memory available)
+ *
+ */
+char *sstrndup(const char *str, size_t size);
 
 /**
  * Safe-wrapper around asprintf which exits if it returns -1 (meaning that
@@ -434,3 +441,27 @@ char *get_exe_path(const char *argv0);
  *
  */
 int logical_px(const int logical);
+
+/**
+ * This function resolves ~ in pathnames.
+ * It may resolve wildcards in the first part of the path, but if no match
+ * or multiple matches are found, it just returns a copy of path as given.
+ *
+ */
+char *resolve_tilde(const char *path);
+
+/**
+ * Get the path of the first configuration file found. If override_configpath
+ * is specified, that path is returned and saved for further calls. Otherwise,
+ * checks the home directory first, then the system directory first, always
+ * taking into account the XDG Base Directory Specification ($XDG_CONFIG_HOME,
+ * $XDG_CONFIG_DIRS)
+ *
+ */
+char *get_config_path(const char *override_configpath, bool use_system_paths);
+
+/**
+ * Emulates mkdir -p (creates any missing folders)
+ *
+ */
+bool mkdirp(const char *path);

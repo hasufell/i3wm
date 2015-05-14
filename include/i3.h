@@ -2,7 +2,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * i3.h: global variables that are used all over i3.
  *
@@ -23,6 +23,9 @@
 #include "queue.h"
 #include "data.h"
 #include "xcb.h"
+
+/** Git commit identifier, from version.c */
+extern const char *i3_version;
 
 /** The original value of RLIMIT_CORE when i3 was started. We need to restore
  * this before starting any other process, since we set RLIMIT_CORE to

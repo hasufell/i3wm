@@ -2,7 +2,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * include/data.h: This file defines all data structures used by i3
  *
@@ -256,6 +256,10 @@ struct Binding {
     } release;
 
     /** If this is true for a mouse binding, the binding should be executed
+     * when the button is pressed over the window border. */
+    bool border;
+
+    /** If this is true for a mouse binding, the binding should be executed
      * when the button is pressed over any part of the window, not just the
      * title bar (default). */
     bool whole_window;
@@ -378,6 +382,9 @@ struct Window {
      * default will be 'accepts focus'. */
     bool doesnt_accept_focus;
 
+    /** The _NET_WM_WINDOW_TYPE for this window. */
+    xcb_atom_t window_type;
+
     /** Whether the window says it is a dock window */
     enum { W_NODOCK = 0,
            W_DOCK_TOP = 1,
@@ -413,6 +420,7 @@ struct Match {
     struct regex *instance;
     struct regex *mark;
     struct regex *window_role;
+    xcb_atom_t window_type;
     enum {
         U_DONTCHECK = -1,
         U_LATEST = 0,
@@ -465,6 +473,7 @@ struct Assignment {
      *
      * A_COMMAND = run the specified command for the matching window
      * A_TO_WORKSPACE = assign the matching window to the specified workspace
+     * A_NO_FOCUS = don't focus matched window when it is managed
      *
      * While the type is a bitmask, only one value can be set at a time. It is
      * a bitmask to allow filtering for multiple types, for example in the
@@ -474,7 +483,8 @@ struct Assignment {
     enum {
         A_ANY = 0,
         A_COMMAND = (1 << 0),
-        A_TO_WORKSPACE = (1 << 1)
+        A_TO_WORKSPACE = (1 << 1),
+        A_NO_FOCUS = (1 << 2)
     } type;
 
     /** the criteria to check if a window matches */
@@ -548,6 +558,8 @@ struct Con {
 
     /* user-definable mark to jump to this container later */
     char *mark;
+    /* cached to decide whether a redraw is needed */
+    bool mark_changed;
 
     double percent;
 

@@ -4,7 +4,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * config_directives.c: all config storing functions (see config_parser.c)
  *
@@ -86,6 +86,31 @@ CFGFUN(criteria_add, const char *ctype, const char *cvalue) {
             current_match->id = parsed;
             DLOG("window id as int = %d\n", current_match->id);
         }
+        return;
+    }
+
+    if (strcmp(ctype, "window_type") == 0) {
+        if (strcasecmp(cvalue, "normal") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_NORMAL;
+        else if (strcasecmp(cvalue, "dialog") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_DIALOG;
+        else if (strcasecmp(cvalue, "utility") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_UTILITY;
+        else if (strcasecmp(cvalue, "toolbar") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_TOOLBAR;
+        else if (strcasecmp(cvalue, "splash") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_SPLASH;
+        else if (strcasecmp(cvalue, "menu") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_MENU;
+        else if (strcasecmp(cvalue, "dropdown_menu") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU;
+        else if (strcasecmp(cvalue, "popup_menu") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_POPUP_MENU;
+        else if (strcasecmp(cvalue, "tooltip") == 0)
+            current_match->window_type = A__NET_WM_WINDOW_TYPE_TOOLTIP;
+        else
+            ELOG("unknown window_type value \"%s\"\n", cvalue);
+
         return;
     }
 
@@ -171,8 +196,8 @@ CFGFUN(font, const char *font) {
     font_pattern = sstrdup(font);
 }
 
-CFGFUN(binding, const char *bindtype, const char *modifiers, const char *key, const char *release, const char *whole_window, const char *command) {
-    configure_binding(bindtype, modifiers, key, release, whole_window, command, DEFAULT_BINDING_MODE);
+CFGFUN(binding, const char *bindtype, const char *modifiers, const char *key, const char *release, const char *border, const char *whole_window, const char *command) {
+    configure_binding(bindtype, modifiers, key, release, border, whole_window, command, DEFAULT_BINDING_MODE);
 }
 
 /*******************************************************************************
@@ -181,8 +206,8 @@ CFGFUN(binding, const char *bindtype, const char *modifiers, const char *key, co
 
 static char *current_mode;
 
-CFGFUN(mode_binding, const char *bindtype, const char *modifiers, const char *key, const char *release, const char *whole_window, const char *command) {
-    configure_binding(bindtype, modifiers, key, release, whole_window, command, current_mode);
+CFGFUN(mode_binding, const char *bindtype, const char *modifiers, const char *key, const char *release, const char *border, const char *whole_window, const char *command) {
+    configure_binding(bindtype, modifiers, key, release, border, whole_window, command, current_mode);
 }
 
 CFGFUN(enter_mode, const char *modename) {
@@ -329,6 +354,31 @@ CFGFUN(force_display_urgency_hint, const long duration_ms) {
     config.workspace_urgency_timer = duration_ms / 1000.0;
 }
 
+CFGFUN(delay_exit_on_zero_displays, const long duration_ms) {
+    config.zero_disp_exit_timer_ms = duration_ms;
+}
+
+CFGFUN(focus_on_window_activation, const char *mode) {
+    if (strcmp(mode, "smart") == 0)
+        config.focus_on_window_activation = FOWA_SMART;
+    else if (strcmp(mode, "urgent") == 0)
+        config.focus_on_window_activation = FOWA_URGENT;
+    else if (strcmp(mode, "focus") == 0)
+        config.focus_on_window_activation = FOWA_FOCUS;
+    else if (strcmp(mode, "none") == 0)
+        config.focus_on_window_activation = FOWA_NONE;
+    else {
+        ELOG("Unknown focus_on_window_activation mode \"%s\", ignoring it.\n", mode);
+        return;
+    }
+
+    DLOG("Set new focus_on_window_activation mode = %i", config.focus_on_window_activation);
+}
+
+CFGFUN(show_marks, const char *value) {
+    config.show_marks = eval_boolstr(value);
+}
+
 CFGFUN(workspace, const char *workspace, const char *output) {
     DLOG("Assigning workspace \"%s\" to output \"%s\"\n", workspace, output);
     /* Check for earlier assignments of the same workspace so that we
@@ -407,6 +457,19 @@ CFGFUN(assign, const char *workspace) {
     match_copy(&(assignment->match), current_match);
     assignment->type = A_TO_WORKSPACE;
     assignment->dest.workspace = sstrdup(workspace);
+    TAILQ_INSERT_TAIL(&assignments, assignment, assignments);
+}
+
+CFGFUN(no_focus) {
+    if (match_is_empty(current_match)) {
+        ELOG("Match is empty, ignoring this assignment\n");
+        return;
+    }
+
+    DLOG("new assignment, using above criteria, to ignore focus on manage");
+    Assignment *assignment = scalloc(sizeof(Assignment));
+    match_copy(&(assignment->match), current_match);
+    assignment->type = A_NO_FOCUS;
     TAILQ_INSERT_TAIL(&assignments, assignment, assignments);
 }
 

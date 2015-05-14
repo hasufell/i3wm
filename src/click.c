@@ -4,7 +4,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2012 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  * click.c: Button press (mouse click) events.
  *
@@ -180,14 +180,18 @@ static int route_click(Con *con, xcb_button_press_event_t *event, const bool mod
     if (con->parent->type == CT_DOCKAREA)
         goto done;
 
+    const bool is_left_or_right_click = (event->detail == XCB_BUTTON_INDEX_1 ||
+                                         event->detail == XCB_BUTTON_INDEX_3);
+
     /* if the user has bound an action to this click, it should override the
      * default behavior. */
-    if (dest == CLICK_DECORATION || dest == CLICK_INSIDE) {
+    if (dest == CLICK_DECORATION || dest == CLICK_INSIDE || dest == CLICK_BORDER) {
         Binding *bind = get_binding_from_xcb_event((xcb_generic_event_t *)event);
         /* clicks over a window decoration will always trigger the binding and
          * clicks on the inside of the window will only trigger a binding if
          * the --whole-window flag was given for the binding. */
-        if (bind && (dest == CLICK_DECORATION || bind->whole_window)) {
+        if (bind && ((dest == CLICK_DECORATION || bind->whole_window) ||
+                     (dest == CLICK_BORDER && bind->border))) {
             CommandResult *result = run_binding(bind, con);
 
             /* ASYNC_POINTER eats the event */
@@ -278,7 +282,8 @@ static int route_click(Con *con, xcb_button_press_event_t *event, const bool mod
             return 1;
         }
 
-        if (!in_stacked && dest == CLICK_DECORATION) {
+        if (!in_stacked && dest == CLICK_DECORATION &&
+            is_left_or_right_click) {
             /* try tiling resize, but continue if it doesn’t work */
             DLOG("tiling resize with fallback\n");
             if (tiling_resize(con, event, dest))
@@ -291,7 +296,7 @@ static int route_click(Con *con, xcb_button_press_event_t *event, const bool mod
             return 1;
         }
 
-        if (dest == CLICK_BORDER) {
+        if (dest == CLICK_BORDER && is_left_or_right_click) {
             DLOG("floating resize due to border click\n");
             floating_resize_window(floatingcon, proportional, event);
             return 1;
@@ -299,7 +304,8 @@ static int route_click(Con *con, xcb_button_press_event_t *event, const bool mod
 
         /* 6: dragging, if this was a click on a decoration (which did not lead
          * to a resize) */
-        if (!in_stacked && dest == CLICK_DECORATION) {
+        if (!in_stacked && dest == CLICK_DECORATION &&
+            (event->detail == XCB_BUTTON_INDEX_1)) {
             floating_drag_window(floatingcon, event);
             return 1;
         }
@@ -320,8 +326,7 @@ static int route_click(Con *con, xcb_button_press_event_t *event, const bool mod
     }
     /* 8: otherwise, check for border/decoration clicks and resize */
     else if ((dest == CLICK_BORDER || dest == CLICK_DECORATION) &&
-             (event->detail == XCB_BUTTON_INDEX_1 ||
-              event->detail == XCB_BUTTON_INDEX_3)) {
+             is_left_or_right_click) {
         DLOG("Trying to resize (tiling)\n");
         tiling_resize(con, event, dest);
     }

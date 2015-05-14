@@ -1,11 +1,14 @@
 UNAME=$(shell uname)
 DEBUG=1
-COVERAGE=0
 USE_ICONS=1
 INSTALL=install
 LN=ln
+PKG_CONFIG=pkg-config
 ifndef PREFIX
   PREFIX=/usr
+endif
+ifndef EXEC_PREFIX
+  EXEC_PREFIX=$(PREFIX)
 endif
 ifndef SYSCONFDIR
   ifeq ($(PREFIX),/usr)
@@ -64,7 +67,7 @@ endif
 
 ## Libraries flags
 
-ifeq ($(shell which pkg-config 2>/dev/null 1>/dev/null || echo 1),1)
+ifeq ($(shell which $(PKG_CONFIG) 2>/dev/null 1>/dev/null || echo 1),1)
 $(error "pkg-config was not found")
 endif
 
@@ -78,15 +81,15 @@ endif
 #
 # We redirect stderr to /dev/null because pkg-config prints an error if support
 # for gnome-config was enabled but gnome-config is not actually installed.
-cflags_for_lib = $(shell pkg-config --silence-errors --cflags $(1) 2>/dev/null)
-ldflags_for_lib = $(shell pkg-config --exists 2>/dev/null $(1) && pkg-config --libs $(1) 2>/dev/null || echo -l$(2))
+cflags_for_lib = $(shell $(PKG_CONFIG) --silence-errors --cflags $(1) 2>/dev/null)
+ldflags_for_lib = $(shell $(PKG_CONFIG) --exists 2>/dev/null $(1) && $(PKG_CONFIG) --libs $(1) 2>/dev/null || echo -l$(2))
 
 # XCB common stuff
 XCB_CFLAGS  := $(call cflags_for_lib, xcb)
 XCB_CFLAGS  += $(call cflags_for_lib, xcb-event)
 XCB_LIBS    := $(call ldflags_for_lib, xcb,xcb)
 XCB_LIBS    += $(call ldflags_for_lib, xcb-event,xcb-event)
-ifeq ($(shell pkg-config --exists xcb-util 2>/dev/null || echo 1),1)
+ifeq ($(shell $(PKG_CONFIG) --exists xcb-util 2>/dev/null || echo 1),1)
 XCB_CFLAGS  += $(call cflags_for_lib, xcb-atom)
 XCB_CFLAGS  += $(call cflags_for_lib, xcb-aux)
 XCB_LIBS    += $(call ldflags_for_lib, xcb-atom,xcb-atom)
@@ -132,7 +135,7 @@ LIBEV_LIBS   := $(call ldflags_for_lib, libev,ev)
 
 # libpcre
 PCRE_CFLAGS := $(call cflags_for_lib, libpcre)
-ifeq ($(shell pkg-config --atleast-version=8.10 libpcre 2>/dev/null && echo 1),1)
+ifeq ($(shell $(PKG_CONFIG) --atleast-version=8.10 libpcre 2>/dev/null && echo 1),1)
 I3_CPPFLAGS += -DPCRE_HAS_UCP=1
 endif
 PCRE_LIBS   := $(call ldflags_for_lib, libpcre,pcre)

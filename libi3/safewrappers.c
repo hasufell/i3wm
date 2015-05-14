@@ -2,7 +2,7 @@
  * vim:ts=4:sw=4:expandtab
  *
  * i3 - an improved dynamic tiling window manager
- * © 2009-2011 Michael Stapelberg and contributors (see also: LICENSE)
+ * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  *
  */
 #include <string.h>
@@ -45,6 +45,13 @@ char *sstrdup(const char *str) {
     char *result = strdup(str);
     if (result == NULL)
         err(EXIT_FAILURE, "strdup()");
+    return result;
+}
+
+char *sstrndup(const char *str, size_t size) {
+    char *result = strndup(str, size);
+    if (result == NULL)
+        err(EXIT_FAILURE, "strndup()");
     return result;
 }
 
