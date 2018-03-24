@@ -101,6 +101,19 @@ PKG_CHECK_MODULES([YAJL], [yajl])
 PKG_CHECK_MODULES([LIBPCRE], [libpcre >= 8.10])
 PKG_CHECK_MODULES([PANGOCAIRO], [cairo >= 1.14.4 pangocairo])
 
+AC_ARG_ENABLE([icons],
+    [AS_HELP_STRING([--enable-icons],
+        [enable support for icons (default: disable)])],
+    [enable_icons=$enableval],
+    [enable_icons="no"])
+
+AM_CONDITIONAL(USE_ICONS, [test "x$enable_icons" = "xyes"])
+if test "x$enable_icons" = xyes; then
+	PKG_CHECK_MODULES([XCB_UTIL_IMAGE], [xcb-image])
+	AC_DEFINE([USE_ICONS], [1], [Define when image support should be enabled])
+fi
+
+
 # Checks for programs.
 AC_PROG_AWK
 AC_PROG_CPP
@@ -174,6 +187,7 @@ AS_HELP_STRING([build docs:], [${print_BUILD_DOCS}])
 AS_HELP_STRING([enable debug flags:], [${ax_enable_debug}])
 AS_HELP_STRING([code coverage:], [${CODE_COVERAGE_ENABLED}])
 AS_HELP_STRING([enabled sanitizers:], [${ax_enabled_sanitizers}])
+AS_HELP_STRING([enabled icons:], [${enable_icons}])
 
 To compile, run:
 

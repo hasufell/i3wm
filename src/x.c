@@ -9,6 +9,9 @@
  *
  */
 #include "all.h"
+#ifdef USE_ICONS
+#include <xcb/xcb_image.h>
+#endif
 
 #ifndef MAX
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -389,6 +392,44 @@ static void x_draw_decoration_after_title(Con *con, struct deco_render_params *p
     x_draw_title_border(con, p);
 }
 
+#ifdef USE_ICONS
+
+static inline uint32_t pixel_blend(uint32_t d, uint32_t s)
+{
+	const uint32_t a     = (s >> 24) + 1;
+
+	const uint32_t dstrb = d & 0xFF00FF;
+	const uint32_t dstg  = d & 0xFF00;
+
+	const uint32_t srcrb = s & 0xFF00FF;
+	const uint32_t srcg  = s & 0xFF00;
+
+	uint32_t drb = srcrb - dstrb;
+	uint32_t dg  =  srcg - dstg;
+
+	drb *= a;
+	dg  *= a;
+	drb >>= 8;
+	dg  >>= 8;
+
+	uint32_t rb = (drb + dstrb) & 0xFF00FF;
+	uint32_t g  = (dg  + dstg) & 0xFF00;
+
+	return rb | g;
+}
+
+/*
+ * Copy icon pixels, blend with background
+ */
+void copy_with_pixel_blend(uint32_t *dst, uint32_t* src, uint32_t background)
+{
+    int i;
+    for(i=0; i < 16*16; ++i) {
+        *dst++ = pixel_blend(background,*src++);
+    }
+}
+#endif
+
 /*
  * Draws the decoration of the given container onto its parent.
  *
@@ -628,13 +669,51 @@ void x_draw_decoration(Con *con) {
 
     draw_util_text(title, &(parent->frame_buffer),
                    p->color->text, p->color->background,
+#ifdef USE_ICONS
+                   con->deco_rect.x + logical_px(2) + 18,
+#else
                    con->deco_rect.x + logical_px(2),
+#endif
                    con->deco_rect.y + text_offset_y,
                    con->deco_rect.width - mark_width - 2 * logical_px(2));
 
     if (con->title_format != NULL) {
         I3STRING_FREE(title);
     }
+
+#ifdef USE_ICONS
+    /* Draw the icon */
+    if (win->icon) {
+        xcb_image_t* icon;
+
+        uint16_t width = 16;
+        uint16_t height = 16;
+        uint32_t icon_pixels[width*height];
+
+
+        icon = xcb_image_create_native( conn,
+                width, height,
+                XCB_IMAGE_FORMAT_Z_PIXMAP,
+                root_depth,
+                NULL,
+                width*height*4,
+                (uint8_t*)icon_pixels
+                );
+
+        copy_with_pixel_blend(icon_pixels, win->icon, (p->color->background).colorpixel);
+        if (icon) {
+            int icon_offset_y = (con->deco_rect.height - 16) / 2;
+
+            xcb_image_put(conn, (parent->frame_buffer).id, (parent->frame_buffer).gc,
+                          icon, con->deco_rect.x + 18 - width, con->deco_rect.y + icon_offset_y, 0);
+
+            xcb_image_destroy(icon);
+        }
+        else {
+            ELOG("Error creating XCB image\n");
+        }
+    }
+#endif
 
 after_title:
     x_draw_decoration_after_title(con, p);

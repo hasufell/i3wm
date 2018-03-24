@@ -8,7 +8,6 @@
  *
  */
 #include "all.h"
-
 #include "yajl_utils.h"
 
 #include <yajl/yajl_gen.h>
@@ -90,6 +89,9 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
         class_cookie, leader_cookie, transient_cookie,
         role_cookie, startup_id_cookie, wm_hints_cookie,
         wm_normal_hints_cookie, motif_wm_hints_cookie, wm_user_time_cookie, wm_desktop_cookie;
+#ifdef USE_ICONS
+    xcb_get_property_cookie_t wm_icon_cookie;
+#endif
 
     geomc = xcb_get_geometry(conn, d);
 
@@ -162,6 +164,9 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
     motif_wm_hints_cookie = GET_PROPERTY(A__MOTIF_WM_HINTS, 5 * sizeof(uint64_t));
     wm_user_time_cookie = GET_PROPERTY(A__NET_WM_USER_TIME, UINT32_MAX);
     wm_desktop_cookie = GET_PROPERTY(A__NET_WM_DESKTOP, UINT32_MAX);
+#ifdef USE_ICONS
+    wm_icon_cookie = xcb_get_property_unchecked(conn, false, window, A__NET_WM_ICON, XCB_ATOM_CARDINAL, 0, UINT32_MAX);
+#endif
 
     DLOG("Managing window 0x%08x\n", window);
 
@@ -190,6 +195,9 @@ void manage_window(xcb_window_t window, xcb_get_window_attributes_cookie_t cooki
         memset(&wm_size_hints, '\0', sizeof(xcb_size_hints_t));
     xcb_get_property_reply_t *type_reply = xcb_get_property_reply(conn, wm_type_cookie, NULL);
     xcb_get_property_reply_t *state_reply = xcb_get_property_reply(conn, state_cookie, NULL);
+#ifdef USE_ICONS
+    window_update_icon(cwindow, xcb_get_property_reply(conn, wm_icon_cookie, NULL));
+#endif
 
     xcb_get_property_reply_t *startup_id_reply;
     startup_id_reply = xcb_get_property_reply(conn, startup_id_cookie, NULL);
