@@ -102,10 +102,10 @@ PKG_CHECK_MODULES([LIBPCRE], [libpcre >= 8.10])
 PKG_CHECK_MODULES([PANGOCAIRO], [cairo >= 1.14.4 pangocairo])
 
 AC_ARG_ENABLE([icons],
-    [AS_HELP_STRING([--enable-icons],
-        [enable support for icons (default: disable)])],
+    [AS_HELP_STRING([--disable-icons],
+        [disable support for icons (default: enable)])],
     [enable_icons=$enableval],
-    [enable_icons="no"])
+    [enable_icons="yes"])
 
 AM_CONDITIONAL(USE_ICONS, [test "x$enable_icons" = "xyes"])
 if test "x$enable_icons" = xyes; then
